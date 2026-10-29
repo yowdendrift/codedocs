@@ -49,7 +49,8 @@ produce release assets and `SHA256SUMS` in `dist/`. It stops any running viewer 
 ### Workflows
 
 - `.github/workflows/ci.yml`, on every push and pull request: version consistency, the
-  launcher's executable bit, `go vet`, all five builds, and `check` on the example docs.
+  launcher's executable bit, `go vet`, `go test` (including the viewer parity test), all five
+  builds, and `check` on the example docs and this repo's docs.
 - `.github/workflows/release.yml`, on a `v*` tag: the same checks plus tag-matches-version and
   `REPO`-names-this-repository, then `build.sh dist` and a GitHub release with the changelog
   entry as notes.

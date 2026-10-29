@@ -51,7 +51,7 @@ then writes the embedded viewer and libraries, the theme, `content/` and a manif
 the same file set as the server, minus the docs folder, files over 2 MB and binary files, and
 writes `tool/export.go#codeIndex`. Definitions are stored compactly as
 `name -> [[file index, line], …]`. Per-file `tool/export.go#codeMeta` holds the links from
-`tool/links.go#linksFor`, imports resolved to a line (`tool/export.go#exportImport`), and the
+`tool/links.go#linksFor`, imports resolved to a line by `tool/defs.go#resolveImports` (the same code the server uses), and the
 lines of symbols those links point at, so following an import lands on the right line without a
 server. Files with nothing to say get no meta file; code/index.json lists the ones that do, so
 the viewer never requests a missing file.

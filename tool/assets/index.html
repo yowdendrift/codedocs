@@ -128,10 +128,14 @@
   // (raw.githubusercontent.com pinned to a commit), and code/ holds what the server would
   // otherwise work out: the file list, import links and a definitions index.
   const encPath = f => f.split('/').map(encodeURIComponent).join('/');
-  const dirOf = f => f.includes('/') ? f.slice(0, f.lastIndexOf('/')) : '.';
+  // parity:begin. Copies of Go logic, for static exports (which have no server to ask).
+  // tool/parity_test.go runs this block in Node against the Go originals (globRe in util.go,
+  // rankDefinitions in defs.go) on the same cases, so the two can't drift apart unnoticed.
+  // Keep it self-contained: plain functions, no references to anything outside the block.
+  const dirOf = f => { const i = f.lastIndexOf('/'); return i < 0 ? '.' : i === 0 ? '/' : f.slice(0, i); };
   const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const globCache = new Map();
-  function globRe(g) { // same rules as the tool: * within a folder, ** across, {a,b}, trailing / = everything under
+  function globRe(g) { // * within a folder, ** across folders, ?, {a,b}, trailing / = everything under
     if (globCache.has(g)) return globCache.get(g);
     let re = '^';
     for (let i = 0; i < g.length; i++) {
@@ -149,6 +153,21 @@
     return r;
   }
   const matchAny = (f, globs) => globs.some(g => globRe(g).test(f));
+  // Where name, used in file from, is defined. all: [{file, line}] in index order; imports:
+  // name -> {path, line, dir}; links: the file's import links.
+  function rankDefinitions(name, all, from, imports, links) {
+    const imp = imports?.[name];
+    if (imp && imp.dir) { const inside = all.filter(d => dirOf(d.file) === imp.path); if (inside.length) return inside; }
+    else if (imp) return [{ file: imp.path, line: imp.line || 0, kind: 'import' }];
+    const local = all.find(d => d.file === from);
+    if (local) return [local];
+    const near = {};
+    for (const l of links || []) near[l.dir ? l.path : dirOf(l.path)] = 2;
+    near[dirOf(from)] = Math.max(near[dirOf(from)] || 0, 1);
+    return all.map((d, i) => ({ d, i, n: near[dirOf(d.file)] || 0 }))
+      .sort((a, b) => b.n - a.n || (a.d.file < b.d.file ? -1 : a.d.file > b.d.file ? 1 : a.i - b.i)).slice(0, 40).map(x => x.d);
+  }
+  // parity:end
   async function getJSON(url) {
     const r = await fetch(url, { cache: 'no-store' });
     const d = await r.json().catch(() => ({}));
@@ -184,22 +203,13 @@
       if (!STATIC) return (await getJSON('api/files?' + globs.map(g => 'glob=' + encodeURIComponent(g)).join('&'))).files;
       return STATIC.files.filter(f => !globs.length || matchAny(f, globs));
     },
-    // Go to definition: the file's imports, then the same file, then everything ranked by closeness.
+    // Go to definition: rankDefinitions over the export's index, or the server's answer.
     async definition(name, from) {
       if (!STATIC) return (await getJSON(`api/definition?name=${encodeURIComponent(name)}&from=${encodeURIComponent(from)}`)).matches || [];
       defsData ||= getJSON('code/defs.json');
       const all = ((await defsData)[name] || []).map(([i, line]) => ({ file: STATIC.files[i], line }));
       const meta = from ? await fileMeta(from) : {};
-      const imp = meta.imports?.[name];
-      if (imp && imp.dir) { const inside = all.filter(d => dirOf(d.file) === imp.path); if (inside.length) return inside; }
-      else if (imp) return [{ file: imp.path, line: imp.line || 1, kind: 'import' }];
-      const local = all.filter(d => d.file === from);
-      if (local.length) return local.slice(0, 1);
-      const near = {};
-      for (const l of meta.links || []) near[l.dir ? l.path : dirOf(l.path)] = 2;
-      near[dirOf(from)] = Math.max(near[dirOf(from)] || 0, 1);
-      return all.map((d, i) => ({ d, i, n: near[dirOf(d.file)] || 0 }))
-        .sort((a, b) => b.n - a.n || (a.d.file < b.d.file ? -1 : a.d.file > b.d.file ? 1 : a.i - b.i)).slice(0, 40).map(x => x.d);
+      return rankDefinitions(name, all, from, meta.imports, meta.links);
     },
   };
   const sourceName = () => STATIC?.repo ? 'GitHub' : 'the source host';

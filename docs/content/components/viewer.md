@@ -67,8 +67,10 @@ button work across files, file lists and definition choices.
 `tool/assets/index.html#Code` hides the difference between serving and a static export. With the
 server it calls `/api/file`, `/api/files` and `/api/definition`. In an export (the manifest says
 `static`), it reads code/index.json, fetches source from GitHub, filters file lists with its
-own `tool/assets/index.html#globRe`, and ranks definitions from code/defs.json the way the server
-would. "Open in editor" becomes "View on GitHub".
+own `tool/assets/index.html#globRe`, and ranks definitions from code/defs.json with
+`tool/assets/index.html#rankDefinitions`, the same rules as the server. Those two live between
+`// parity:begin` and `// parity:end` markers, self-contained, so
+`tool/parity_test.go#TestViewerParity` can run them in Node against the Go originals. "Open in editor" becomes "View on GitHub".
 
 ### Libraries
 

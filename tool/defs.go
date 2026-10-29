@@ -121,53 +121,83 @@ func (d *defIndex) get(files []string) map[string][]Def {
 	return names
 }
 
-// findDefinition: imports of the current file first, then a definition in the same file,
-// then every definition ranked by closeness (folders the file imports from, same folder).
+// resolvedImport is where a name imported into a file is defined: a file and line, or a
+// folder (a Go package) to look inside. Shared by the server and static exports.
+type resolvedImport struct {
+	Path string `json:"path"`
+	Line int    `json:"line,omitempty"`
+	Dir  bool   `json:"dir,omitempty"`
+}
+
+// resolveImports turns a file's imports into definition targets. Imported names that point at
+// a file are resolved to a line now (resolveSymbol reads the target), so callers don't need to.
+func resolveImports(c *repoCtx, fl *fileLinks) map[string]resolvedImport {
+	if len(fl.Imports) == 0 {
+		return nil
+	}
+	out := map[string]resolvedImport{}
+	for name, t := range fl.Imports {
+		if c.dirs[t.Path] || t.Path == "." {
+			out[name] = resolvedImport{Path: t.Path, Dir: true}
+			continue
+		}
+		sym := t.Symbol
+		if sym == "" {
+			sym = name
+		}
+		out[name] = resolvedImport{Path: t.Path, Line: max(1, resolveSymbol(t.Path, sym))}
+	}
+	return out
+}
+
+// findDefinition: where name, used in file from, is defined.
 func findDefinition(c *repoCtx, from, name string) []Def {
-	var fl *fileLinks
+	var imports map[string]resolvedImport
+	var links []Link
 	if from != "" && c.set[from] {
 		if b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(from))); err == nil {
-			fl = linksFor(c, from, string(b))
-			if t, ok := fl.Imports[name]; ok {
-				if c.dirs[t.Path] || t.Path == "." { // Go package: look inside it
-					var in []Def
-					for _, d := range defs.get(c.files)[name] {
-						if path.Dir(d.File) == t.Path {
-							in = append(in, d)
-						}
-					}
-					if len(in) > 0 {
-						return in
-					}
-				} else {
-					sym := t.Symbol
-					if sym == "" {
-						sym = name
-					}
-					return []Def{{File: t.Path, Line: max(1, resolveSymbol(t.Path, sym)), Kind: "import"}}
+			fl := linksFor(c, from, string(b))
+			imports, links = resolveImports(c, fl), fl.Links
+		}
+	}
+	return rankDefinitions(name, defs.get(c.files)[name], from, imports, links)
+}
+
+// rankDefinitions picks and orders candidate definitions: the file's own import of the name
+// first (inside the package, for a Go import), then a definition in the same file, then
+// every definition ranked by closeness (folders the file imports from, then its own folder).
+//
+// The viewer has a JavaScript copy for static exports (rankDefinitions in assets/index.html,
+// between the parity markers). TestViewerParity runs both on the same cases: change them
+// together.
+func rankDefinitions(name string, all []Def, from string, imports map[string]resolvedImport, links []Link) []Def {
+	if t, ok := imports[name]; ok {
+		if t.Dir {
+			var in []Def
+			for _, d := range all {
+				if path.Dir(d.File) == t.Path {
+					in = append(in, d)
 				}
 			}
+			if len(in) > 0 {
+				return in
+			}
+		} else {
+			return []Def{{File: t.Path, Line: t.Line, Kind: "import"}}
 		}
 	}
-	all := defs.get(c.files)[name]
-	var local []Def
 	for _, d := range all {
 		if d.File == from {
-			local = append(local, d)
+			return []Def{d}
 		}
-	}
-	if len(local) > 0 {
-		return local[:1]
 	}
 	near := map[string]int{}
-	if fl != nil {
-		for _, l := range fl.Links {
-			p := l.Path
-			if !l.Dir {
-				p = path.Dir(p)
-			}
-			near[p] = 2
+	for _, l := range links {
+		p := l.Path
+		if !l.Dir {
+			p = path.Dir(p)
 		}
+		near[p] = 2
 	}
 	near[path.Dir(from)] = max(near[path.Dir(from)], 1)
 	out := append([]Def{}, all...)

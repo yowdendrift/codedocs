@@ -37,15 +37,9 @@ type codeIndex struct {
 }
 
 type codeMeta struct {
-	Links   []Link                  `json:"links,omitempty"`
-	Imports map[string]exportImport `json:"imports,omitempty"` // local name -> where it's defined
-	Syms    map[string]int          `json:"syms,omitempty"`    // "path#Symbol" -> line, for link targets
-}
-
-type exportImport struct {
-	Path string `json:"path"`
-	Line int    `json:"line,omitempty"`
-	Dir  bool   `json:"dir,omitempty"` // a Go package: look for the name inside this folder
+	Links   []Link                    `json:"links,omitempty"`
+	Imports map[string]resolvedImport `json:"imports,omitempty"` // local name -> where it's defined
+	Syms    map[string]int            `json:"syms,omitempty"`    // "path#Symbol" -> line, for link targets
 }
 
 var reGitHubRemote = regexp.MustCompile(`github\.com[:/]+([^/\s]+)/([^/\s]+?)(?:\.git)?/?$`)
@@ -170,20 +164,7 @@ func cmdExport(o options) {
 				}
 			}
 		}
-		if len(fl.Imports) > 0 {
-			cm.Imports = map[string]exportImport{}
-			for name, t := range fl.Imports {
-				if ctx.dirs[t.Path] || t.Path == "." {
-					cm.Imports[name] = exportImport{Path: t.Path, Dir: true}
-					continue
-				}
-				sym := t.Symbol
-				if sym == "" {
-					sym = name
-				}
-				cm.Imports[name] = exportImport{Path: t.Path, Line: max(1, resolveSymbol(t.Path, sym))}
-			}
-		}
+		cm.Imports = resolveImports(ctx, fl)
 		if len(cm.Syms) == 0 {
 			cm.Syms = nil
 		}

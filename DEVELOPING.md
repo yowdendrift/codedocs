@@ -50,6 +50,10 @@ The loop:
    the tool in `tool/*.go`.
 2. Rebuild if you touched `tool/` (`.\build.ps1` or `./build.sh`). Both stop running viewers
    first, because Windows locks a running binary.
+   Run `go test ./...` in `tool/` too. It includes a parity test that runs the viewer's
+   JavaScript copies of the glob and go-to-definition rules (between the `parity:begin` and
+   `parity:end` markers in `tool/assets/index.html`) against the Go originals; it needs Node and
+   skips without it locally, but CI always runs it.
 3. Try it on the example:
    ```sh
    cd example

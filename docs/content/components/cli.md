@@ -51,7 +51,8 @@ extensions, and any extra globs the caller passes. Callers add the docs folder a
 folders, `?`, `{a,b}`, trailing `/` for "everything under") to a cached regexp;
 `tool/util.go#matchAny` tests a path against a list. Component `paths`, `ignore` lists and the
 code panel's file lists all use it. The viewer has a JavaScript copy for static exports
-(`tool/assets/index.html#globRe`); the two must stay in step.
+(`tool/assets/index.html#globRe`), checked against this one by
+`tool/parity_test.go#TestViewerParity`.
 
 ### Git and JSON
 

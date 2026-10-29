@@ -23,6 +23,9 @@ jobs:
             echo "Not executable. Fix with: git update-index --chmod=+x skills/codedocs/bin/codedocs"; exit 1; }
       - name: Tag, VERSION, plugin.json, CHANGELOG and REPO agree
         run: sh scripts/check-versions.sh "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
+      - name: Tests (including Go/viewer parity, which needs Node)
+        working-directory: tool
+        run: go test ./...
       - name: Build
         run: sh build.sh dist
       - name: Release notes from the changelog
