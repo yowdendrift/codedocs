@@ -138,3 +138,9 @@ from source avoids both.
 ## Contributing
 
 See [DEVELOPING.md](DEVELOPING.md) for the layout, how to try changes, and how releases work.
+
+## License
+
+[MIT](LICENSE). The viewer bundles marked, Mermaid, D3, markmap and highlight.js, each under its own
+license (MIT, BSD or ISC); `tool/assets/lib/VERSIONS.txt` lists them
+with their licenses.
