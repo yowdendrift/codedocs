@@ -9,6 +9,11 @@ Each entry says what changed and whether it affects existing docs:
   leave it alone, so they never mark pages outdated.
 - **theme**: new variables in the default theme.css; `/codedocs upgrade` adds them to existing themes
 
+## Unreleased
+- **viewer**: the mind map now uses the theme's colours. In dark mode its headings ("Components",
+  "Flows"…) and the "via …" lines were dark grey on a dark background; markmap's own defaults
+  were overriding the theme.
+
 ## 0.6.0 (2026-10-29)
 - **`codedocs export <folder>`** (new): writes the docs as a static site for GitHub Pages or any
   web host, with a working code panel. The source isn't copied: the viewer fetches each file from
