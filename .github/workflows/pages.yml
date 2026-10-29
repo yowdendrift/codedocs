@@ -1,0 +1,50 @@
+# Publishes this repository's own docs (docs/) as a static site on GitHub Pages: the live demo.
+# The code panel there reads source from raw.githubusercontent.com at the commit the docs
+# describe (last_synced in docs/docs.config.json). One-time setup: Settings > Pages > Source:
+# GitHub Actions.
+name: pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # export resolves the docs' last_synced commit
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: tool/go.mod
+          cache: false
+      - name: Build the tool
+        run: sh build.sh
+      - name: Check the docs
+        run: skills/codedocs/bin/codedocs check
+      - name: Export
+        run: skills/codedocs/bin/codedocs export _site
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

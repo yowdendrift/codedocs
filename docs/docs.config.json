@@ -1,0 +1,11 @@
+{
+  "skill_version": "0.6.0",
+  "project": "codedocs",
+  "repo_root_abs": "",
+  "editor": "vscode",
+  "ignore": [
+    "example/**"
+  ],
+  "last_synced": null,
+  "created": "2026-10-29"
+}

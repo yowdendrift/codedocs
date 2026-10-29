@@ -9,6 +9,23 @@ Each entry says what changed and whether it affects existing docs:
   leave it alone, so they never mark pages outdated.
 - **theme**: new variables in the default theme.css; `/codedocs upgrade` adds them to existing themes
 
+## 0.6.0 (2026-10-29)
+- **`codedocs export <folder>`** (new): writes the docs as a static site for GitHub Pages or any
+  web host, with a working code panel. The source isn't copied: the viewer fetches each file from
+  `raw.githubusercontent.com` at the commit the docs describe (`last_synced`, else `HEAD`), and
+  `code/` holds the file list, import links and a definitions index. Pass `--github OWNER/REPO`
+  and `--ref` to override, or `--source-url`/`--web-url` for another host. In Claude Code:
+  `/codedocs export`.
+- **viewer**: a static mode for exports. Clicking code refs, following imports, file trees and
+  Ctrl/Cmd+click all work without the server; "Open in editor" becomes "View on GitHub". Served
+  by `codedocs serve`, nothing changes.
+- **Symbol refs resolve more accurately**: a declaration keyword now has to stand on its own, so
+  HTML like `class="…"` or a name like `constructor` no longer counts as a definition. A few refs
+  that used to land on the wrong line now land on the right one.
+- A saved default theme now lives in your config folder (`codedocs/default-theme.css`), so plugin
+  updates don't lose it. One saved in the skill folder by an older version is still read.
+- This repository now documents itself in `docs/`, published as a live demo on every push.
+
 ## 0.5.0 (2026-10-29)
 Packaging release: no changes to the viewer, the content model, the guidance or themes, so
 existing docs need nothing.

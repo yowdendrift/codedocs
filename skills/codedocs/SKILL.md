@@ -1,7 +1,7 @@
 ---
 name: codedocs
 description: Codebase documentation for humans (not Claude Docs documents). Documents a codebase so a person can understand it, as layered markdown docs (overview, components, flows, concerns, decisions, glossary, gotchas) read through an HTML viewer with diagrams, a mind map and a code panel. Also keeps the docs current after changes, checks them for drift, explains a change in terms of the docs, and restyles the viewer.
-argument-hint: "init | add <subject|insight> | update [range] | check | explain [range|branch] | style <description> | upgrade | links | serve | stop | status"
+argument-hint: "init | add <subject|insight> | update [range] | check | explain [range|branch] | style <description> | upgrade | links | serve | stop | export [folder] | status"
 disable-model-invocation: true
 allowed-tools:
   - Bash("${CLAUDE_SKILL_DIR}/bin/codedocs" *)
@@ -38,6 +38,7 @@ plus the shared references it tells you to read.
 | `add <subject \| insight>` | `<skill>/reference/add.md` | Document a chosen subject in depth (a topic page plus flows), or record something the user knows |
 | `serve` | (below) | Start the viewer |
 | `stop` (or `shutdown`) | (below) | Stop the viewer |
+| `export [folder]` | (below) | Write the docs as a static site for GitHub Pages or any web host |
 | `status` or nothing | (below) | Show the state of the docs and the command list |
 
 **serve**: run `"<skill>/bin/codedocs" serve --open` from the repo root so that it keeps running
@@ -56,6 +57,14 @@ user wants every running viewer stopped (for example before rebuilding the binar
 where a running copy is locked). It works whichever session started the server. Report what it
 printed.
 
+**export**: run `"<skill>/bin/codedocs" export <folder>` from the repo root (default folder
+`docs-site`; the tool refuses a non-empty folder that isn't an earlier export). It writes a static
+copy of the viewer and docs whose code panel loads source from GitHub at the commit the docs
+describe, so it needs the repo on GitHub and that commit pushed; the tool warns if it isn't.
+Report what it printed, and that any static host works: GitHub Pages, Netlify, a plain web
+server. Suggest adding the export folder to `.gitignore` unless they mean to commit it. For a
+private repository, tell them visitors won't be able to load the code.
+
 **status**: run `"<skill>/bin/codedocs" status`. If it reports no docs
 folder, say so and suggest `/codedocs init`. Then list the commands in the table above in one line each.
 
@@ -64,7 +73,7 @@ folder, say so and suggest `/codedocs init`. Then list the commands in the table
 `"<skill>/bin/codedocs" <command>` is a single executable (no Node or other runtime
 needed) that does all the deterministic work:
 `stats`, `install-viewer`, `manifest`, `check`, `affected`, `mark-synced`, `status`, `links`, `find`,
-`serve`, `stop`, `version`. Always quote the path (it may contain spaces or backslashes). Run it
+`serve`, `stop`, `export`, `version`. Always quote the path (it may contain spaces or backslashes). Run it
 from the repo root. It finds the docs folder itself; pass `--dir <folder>` only if it can't.
 
 `bin/codedocs` is a small launcher script. The first time it runs on a machine it downloads the

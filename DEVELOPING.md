@@ -22,11 +22,12 @@ tool/                     Go source for the binary (standard library only)
   assets/                 the viewer (index.html, viewer.css, default theme.css) and
                           lib/*.js.gz, the browser libraries, embedded into the binary
   vendor.sh               refresh the embedded libraries (needs npm)
+docs/                     codedocs' documentation of itself (published as the live demo)
 example/                  a tiny fake editor with a full docs set, for trying changes
 scripts/check-versions.sh checks VERSION, plugin.json, CHANGELOG and REPO agree
 build.sh, build.ps1       build the binaries
 install.ps1               link skills/codedocs into ~/.claude/skills for development (Windows)
-.github/workflows/        ci.yml (every push) and release.yml (tags)
+.github/workflows/        ci.yml (every push), release.yml (tags), pages.yml (the live demo)
 ```
 
 ## Working on it
@@ -96,3 +97,14 @@ CODEDOCS_DOWNLOAD_BASE=http://127.0.0.1:8799 path/to/a/copy/of/skills/codedocs/b
 ```
 
 `claude plugin validate .` checks the plugin and marketplace manifests.
+
+## This repo's own docs
+
+`docs/` is codedocs documenting itself, and `pages.yml` publishes it to
+https://yowdendrift.github.io/codedocs/ on every push to `main`, with `codedocs export`. After
+changing the code, run `/codedocs update` here like in any repo; `check` runs in CI. The demo's
+code panel shows the commit in `docs/docs.config.json`'s `last_synced`, so commit the code
+first, then run `mark-synced` (which `/codedocs update` does) and commit that.
+
+GitHub Pages must be set to deploy from GitHub Actions once: Settings › Pages › Source: GitHub
+Actions.

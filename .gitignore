@@ -7,3 +7,8 @@ example/docs/manifest.json
 *.json.tmp
 .vscode/
 .DS_Store
+# This repo's own docs: serve and export use the viewer built into the binary
+docs/index.html
+docs/viewer.css
+docs/manifest.json
+_site/

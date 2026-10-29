@@ -302,7 +302,9 @@ func symbolRegexps(part string) symRes {
 	r := symRes{
 		strong: regexp.MustCompile(`(?:^|[^\w$.])(?:class|interface|trait|enum|struct|type|function\*?|func|def|fn|record|class_name)\s+(?:\([^)]*\)\s*)?` + esc + `(?:[^\w$]|$)`),
 		word:   regexp.MustCompile(`(?:^|[^\w$])` + esc + `(?:[^\w$]|$)`),
-		def: regexp.MustCompile(defKeywords + `.*?(?:^|[^\w$])` + esc + `(?:[^\w$]|$)` +
+		// A keyword must stand alone and be followed by a space, so HTML like class="…" or a
+		// name like constructor doesn't count as a declaration.
+		def: regexp.MustCompile(`(?:^|[^\w$.-])` + defKeywords + `\s(?:.*?[^\w$])??` + esc + `(?:[^\w$]|$)` +
 			`|(?:^|[^\w$.])` + esc + `\s*[:=(]\s*(?:async\s*)?(?:function|\(|[\w$]+\s*=>)` +
 			`|^\s*(?:async\s+)?` + esc + `\s*\([^)]*\)\s*[{:]`),
 	}
@@ -390,6 +392,7 @@ type Manifest struct {
 	LastSynced   *string        `json:"last_synced"`
 	Pages        []*Entry       `json:"pages"`
 	Symbols      map[string]int `json:"symbols"`
+	Static       bool           `json:"static,omitempty"` // a codedocs export: the code panel reads code/
 }
 
 var kindOrder = []string{"overview", "map", "topic", "component", "flow", "concern", "glossary", "decision", "gotchas", "change", "page"}

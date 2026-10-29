@@ -29,6 +29,9 @@ Usage: codedocs <command> [options]   (run from the repo root)
   mark-synced                                    Record HEAD as the commit the docs describe
   status                                         Versions, sync point, outdated pages
   serve           [--port 8780] [--open]         Serve the viewer, with the code panel
+  export          FOLDER [--github OWNER/REPO] [--ref COMMIT] [--source-url URL --web-url URL]
+                                                 Static copy for any web host; the code panel loads
+                                                 source from GitHub (default: origin, at the synced commit)
   find            TERM… [--json]                 Where a subject lives: folders, files and definitions
   links           [FILE] [--json]                Code-panel links: per-language summary, or one file's links
   stop            [--all]                        Stop this repo's viewer (or every running one)
@@ -39,16 +42,20 @@ looks for docs/docs.config.json, then docs/codebase/docs.config.json.
 `
 
 type options struct {
-	dir      string
-	project  string
-	port     string
-	depth    string
-	json     bool
-	guidance bool
-	offline  bool
-	open     bool
-	all      bool
-	pos      []string
+	dir       string
+	project   string
+	port      string
+	depth     string
+	json      bool
+	guidance  bool
+	offline   bool
+	open      bool
+	all       bool
+	github    string
+	ref       string
+	sourceURL string
+	webURL    string
+	pos       []string
 }
 
 func parseArgs(args []string) options {
@@ -81,6 +88,14 @@ func parseArgs(args []string) options {
 			o.guidance = true
 		case "--all":
 			o.all = true
+		case "--github":
+			o.github = val()
+		case "--ref":
+			o.ref = val()
+		case "--source-url":
+			o.sourceURL = val()
+		case "--web-url":
+			o.webURL = val()
 		default:
 			if strings.HasPrefix(a, "--") {
 				die("unknown option " + a)
@@ -122,6 +137,8 @@ func main() {
 		cmdStatus(o)
 	case "serve":
 		cmdServe(o)
+	case "export":
+		cmdExport(o)
 	case "links":
 		cmdLinks(o)
 	case "find":

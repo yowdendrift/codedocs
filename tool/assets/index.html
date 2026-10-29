@@ -78,7 +78,8 @@
   const kindVar = k => `--kind: var(--kind-${k === 'map' ? 'overview' : k})`;
 
   let M = null;               // manifest
-  let API = null;             // code panel API (only when served by the codedocs binary)
+  let API = null;             // code panel available: served by the codedocs binary, or a static export
+  let STATIC = null;          // code/index.json when this is a static export (codedocs export)
   const byId = new Map();     // page id -> manifest entry
   const textCache = new Map();
   const loaded = {};
@@ -122,9 +123,91 @@
     return t;
   }
 
+  // ---------- code source: the codedocs server's API, or a static export ----------
+  // A static export (codedocs export) has no server. The source comes from STATIC.source
+  // (raw.githubusercontent.com pinned to a commit), and code/ holds what the server would
+  // otherwise work out: the file list, import links and a definitions index.
+  const encPath = f => f.split('/').map(encodeURIComponent).join('/');
+  const dirOf = f => f.includes('/') ? f.slice(0, f.lastIndexOf('/')) : '.';
+  const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const globCache = new Map();
+  function globRe(g) { // same rules as the tool: * within a folder, ** across, {a,b}, trailing / = everything under
+    if (globCache.has(g)) return globCache.get(g);
+    let re = '^';
+    for (let i = 0; i < g.length; i++) {
+      const c = g[i];
+      if (c === '*') {
+        if (g[i + 1] === '*') { i++; if (g[i + 1] === '/') { i++; re += '(?:.*/)?'; } else re += '.*'; }
+        else re += '[^/]*';
+      } else if (c === '?') re += '[^/]';
+      else if (c === '{' && g.indexOf('}', i) > 0) { const end = g.indexOf('}', i); re += '(?:' + g.slice(i + 1, end).split(',').map(reEsc).join('|') + ')'; i = end; }
+      else re += reEsc(c);
+    }
+    if (g.endsWith('/')) re += '.*';
+    const r = new RegExp(re + '$');
+    globCache.set(g, r);
+    return r;
+  }
+  const matchAny = (f, globs) => globs.some(g => globRe(g).test(f));
+  async function getJSON(url) {
+    const r = await fetch(url, { cache: 'no-store' });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || `${url}: ${r.status}`);
+    return d;
+  }
+  const metaCache = new Map(), SYMS = {};
+  let defsData = null;
+  function fileMeta(f) {
+    if (!STATIC.hasMeta.has(f)) return Promise.resolve({});
+    if (!metaCache.has(f)) metaCache.set(f, fetch('code/meta/' + encPath(f) + '.json').then(r => r.ok ? r.json() : {}).catch(() => ({})).then(m => { Object.assign(SYMS, m.syms || {}); return m; }));
+    return metaCache.get(f);
+  }
+  function findSymbolLine(text, symbol) { // fallback when the export didn't record the line
+    const name = reEsc(symbol.split('.').pop()), rows = text.split('\n');
+    const def = new RegExp(`\\b(?:func|function|class|def|type|interface|enum|struct|trait|const|let|var|fn)\\s+(?:\\([^)]*\\)\\s*)?${name}\\b`);
+    let i = rows.findIndex(l => def.test(l));
+    if (i < 0) { const w = new RegExp(`\\b${name}\\b`); i = rows.findIndex(l => w.test(l)); }
+    return i + 1;
+  }
+  const Code = {
+    async file(file, symbol) {
+      if (!STATIC) return getJSON(`api/file?path=${encodeURIComponent(file)}${symbol ? '&symbol=' + encodeURIComponent(symbol) : ''}`);
+      if (!STATIC.set.has(file)) throw new Error(`${file} isn't part of this export (missing, ignored or binary).`);
+      const [r, meta] = await Promise.all([fetch(STATIC.source + encPath(file)), fileMeta(file)]);
+      if (!r.ok) throw new Error(`Couldn't load ${file} (${r.status} from ${new URL(STATIC.source, location.href).host}).`);
+      const text = (await r.text()).replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+      const components = M.pages.filter(p => p.kind === 'component' && matchAny(file, p.paths || [])).map(p => ({ id: p.id, title: p.title }));
+      const symbolLine = symbol ? (M.symbols[`${file}#${symbol}`] || SYMS[`${file}#${symbol}`] || findSymbolLine(text, symbol)) : 0;
+      return { path: file, text, lines: text.split('\n').length, symbolLine, components, links: meta.links };
+    },
+    async files(globs) {
+      if (!STATIC) return (await getJSON('api/files?' + globs.map(g => 'glob=' + encodeURIComponent(g)).join('&'))).files;
+      return STATIC.files.filter(f => !globs.length || matchAny(f, globs));
+    },
+    // Go to definition: the file's imports, then the same file, then everything ranked by closeness.
+    async definition(name, from) {
+      if (!STATIC) return (await getJSON(`api/definition?name=${encodeURIComponent(name)}&from=${encodeURIComponent(from)}`)).matches || [];
+      defsData ||= getJSON('code/defs.json');
+      const all = ((await defsData)[name] || []).map(([i, line]) => ({ file: STATIC.files[i], line }));
+      const meta = from ? await fileMeta(from) : {};
+      const imp = meta.imports?.[name];
+      if (imp && imp.dir) { const inside = all.filter(d => dirOf(d.file) === imp.path); if (inside.length) return inside; }
+      else if (imp) return [{ file: imp.path, line: imp.line || 1, kind: 'import' }];
+      const local = all.filter(d => d.file === from);
+      if (local.length) return local.slice(0, 1);
+      const near = {};
+      for (const l of meta.links || []) near[l.dir ? l.path : dirOf(l.path)] = 2;
+      near[dirOf(from)] = Math.max(near[dirOf(from)] || 0, 1);
+      return all.map((d, i) => ({ d, i, n: near[dirOf(d.file)] || 0 }))
+        .sort((a, b) => b.n - a.n || (a.d.file < b.d.file ? -1 : a.d.file > b.d.file ? 1 : a.i - b.i)).slice(0, 40).map(x => x.d);
+    },
+  };
+  const sourceName = () => STATIC?.repo ? 'GitHub' : 'the source host';
+
   // ---------- code refs ----------
   const REF = /^([A-Za-z0-9_.\-\/@~+]+\.[A-Za-z0-9]+)(?::(\d+)(?:-(\d+))?)?(?:#([A-Za-z_$][\w$.]*))?$/;
   function editorHref(file, line) {
+    if (STATIC) return STATIC.web ? `${STATIC.web}${encPath(file)}${line ? '#L' + line : ''}` : null;
     const editor = M.editor;
     if (editor !== 'vscode' && editor !== 'cursor') return null;
     const root = (M.repo_root_abs || '').replace(/\/$/, '').replace(/^\/+/, '');
@@ -137,7 +220,7 @@
     const ln = line || (symbol && M.symbols[`${file}#${symbol}`]) || '';
     const data = `data-file="${esc(file)}" data-line="${esc(ln)}" data-end="${esc(end || '')}" data-symbol="${esc(symbol || '')}"`;
     const ed = editorHref(file, ln);
-    if (API) return `<a class="ref" href="${esc(ed || '#')}" ${data} title="Show ${esc(file)}${ln ? ' line ' + ln : ''}${ed ? ' (Ctrl+click: open in editor)' : ''}">${esc(text)}</a>`;
+    if (API) return `<a class="ref" href="${esc(ed || '#')}" ${data} title="Show ${esc(file)}${ln ? ' line ' + ln : ''}${ed ? ` (Ctrl+click: open ${STATIC ? 'on ' + sourceName() : 'in editor'})` : ''}">${esc(text)}</a>`;
     if (ed) return `<a class="ref" href="${esc(ed)}" title="Open in ${M.editor}: ${esc(file)}${ln ? ' line ' + ln : ''}">${esc(text)}</a>`;
     return `<span class="ref" title="${esc(file)}${ln ? ' line ' + ln : ''}">${esc(text)}</span>`;
   }
@@ -303,10 +386,7 @@
   async function goToDefinition(name) {
     const from = codeState?.file || '';
     try {
-      const r = await fetch(`api/definition?name=${encodeURIComponent(name)}&from=${encodeURIComponent(from)}`, { cache: 'no-store' });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || r.status);
-      const ms = d.matches || [];
+      const ms = await Code.definition(name, from);
       if (!ms.length) return toast(`No definition found for ${name}`);
       if (ms.length === 1 && ms[0].file === from) { setRange(ms[0].line); scrollToLine(ms[0].line); codeState.line = ms[0].line; return; }
       pushHistory();
@@ -391,12 +471,14 @@
     $('#codeBody').innerHTML = '<p class="empty pad">Loading…</p>';
     const ed = $('#codeEditor');
     ed.hidden = !editorHref(file, line);
-    ed.onclick = () => { location.href = editorHref(file, codeState?.line || line); };
+    ed.title = STATIC ? `View on ${sourceName()}` : 'Open in editor';
+    ed.onclick = () => {
+      const href = editorHref(file, codeState?.line || line);
+      if (STATIC) window.open(href, '_blank', 'noopener'); else location.href = href;
+    };
     let data;
     try {
-      const r = await fetch(`api/file?path=${encodeURIComponent(file)}${symbol && !+line ? '&symbol=' + encodeURIComponent(symbol) : ''}`, { cache: 'no-store' });
-      data = await r.json();
-      if (!r.ok) throw new Error(data.error || r.status);
+      data = await Code.file(file, symbol && !+line ? symbol : '');
     } catch (e) { $('#codeBody').innerHTML = `<p class="notice pad">${esc(e.message)}</p>`; return; }
     if (codeState?.file !== file) return; // superseded
     line = +line || data.symbolLine || 0; end = +end || 0;
@@ -430,8 +512,7 @@
     $('#codeMeta').innerHTML = `<div class="muted">${globs.map(g => `<code>${esc(g)}</code>`).join(' ')}</div>`;
     $('#codeBody').innerHTML = '<p class="empty pad">Loading…</p>';
     try {
-      const r = await fetch('api/files?' + globs.map(g => 'glob=' + encodeURIComponent(g)).join('&'), { cache: 'no-store' });
-      const { files } = await r.json();
+      const files = await Code.files(globs);
       if (codeState?.list !== globs) return;
       const refCount = f => M.pages.filter(p => (p.refs || []).includes(f)).length;
       $('#codeBody').innerHTML = files.length
@@ -645,8 +726,7 @@
     const el = document.getElementById('railTree');
     if (!el || !API) return;
     try {
-      const r = await fetch('api/files?' + p.paths.map(g => 'glob=' + encodeURIComponent(g)).join('&'), { cache: 'no-store' });
-      const { files } = await r.json();
+      const files = await Code.files(p.paths);
       if (document.getElementById('railTree') !== el) return; // page changed
       el.innerHTML = files.length ? treeHtml(files, true, files.length > 30) + `<p class="muted tree-count">${files.length} file${files.length === 1 ? '' : 's'}</p>` : '<span class="muted">No files match.</span>';
     } catch { el.innerHTML = treeHtml(p.paths, false); }
@@ -784,11 +864,24 @@
       if (!r.ok) throw new Error('manifest.json not found. Run /codedocs init (or /codedocs check to rebuild it).');
       M = await r.json();
     } catch (e) { return showError(e); }
-    try { const r = await fetch('api/info', { cache: 'no-store' }); if (r.ok) API = await r.json(); } catch {}
+    if (M.static) { // a static export (codedocs export): the code panel reads code/index.json
+      try {
+        const r = await fetch('code/index.json', { cache: 'no-store' });
+        if (r.ok) {
+          STATIC = await r.json();
+          STATIC.set = new Set(STATIC.files);
+          STATIC.hasMeta = new Set((STATIC.meta || []).map(i => STATIC.files[i]));
+          API = { static: true, files: STATIC.files.length };
+        }
+      } catch {}
+    } else {
+      try { const r = await fetch('api/info', { cache: 'no-store' }); if (r.ok) API = await r.json(); } catch {}
+    }
     M.symbols ||= {};
     M.pages.forEach(p => byId.set(p.id, p));
     $('#brand').firstChild.textContent = M.project;
     $('#brandSub').textContent = `${M.pages.length} pages · /codedocs ${M.skill_version}`;
+    if (STATIC?.ref) $('#brandSub').title = `Code shown from ${STATIC.repo || STATIC.source} at ${STATIC.ref.slice(0, 7)}`;
     document.title = M.project;
     buildNav();
     window.addEventListener('hashchange', route);

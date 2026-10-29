@@ -22,6 +22,10 @@ real file beside the text.
 - **Plain markdown in your repo.** The docs are files in `docs/` that diff well. Commit them or
   don't. Coding agents can read them too.
 
+**[See it live](https://yowdendrift.github.io/codedocs/)**: codedocs' documentation of itself,
+written by `/codedocs init` and published with `codedocs export`. Click any code reference to
+open the file beside the page.
+
 ## Install
 
 ### Claude Code
@@ -88,6 +92,7 @@ allow the one-time download on first use, or build the tool yourself (see
 | `/codedocs links` | Check that the code panel's import links resolve, and add rules for this repository's path aliases if not. |
 | `/codedocs serve` | Open the viewer (usually http://localhost:8780/). |
 | `/codedocs stop` | Stop the viewer (`stop --all` stops every running one). |
+| `/codedocs export [folder]` | Write the docs as a static site (GitHub Pages, any web host) with a working code panel. |
 | `/codedocs` or `/codedocs status` | Show where the docs stand. |
 
 The skill only runs when you invoke it, so it never starts an expensive pass by itself. A first
@@ -106,8 +111,11 @@ docs/                    (or docs/codebase/ if docs/ already holds other files)
   index.html, viewer.css a static copy of the viewer, for hosting the folder without the tool
 ```
 
-Served statically (GitHub Pages or any web server), the viewer works without the code panel:
-code references open your editor instead, and the libraries load from a CDN.
+To publish the docs, run `/codedocs export` (or `codedocs export <folder>` yourself) and put the
+folder on GitHub Pages or any web server. The code panel keeps working: it loads each file from
+GitHub at the commit the docs describe, so the repository needs to be public on GitHub and that
+commit pushed. This repository's
+[Pages workflow](.github/workflows/pages.yml) does it on every push.
 
 Adding a short section to your `CLAUDE.md` or `AGENTS.md` points coding agents at the docs:
 

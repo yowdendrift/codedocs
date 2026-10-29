@@ -1,6 +1,6 @@
 {
   "name": "codedocs",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Documents a codebase so a person can understand it: layered markdown docs (overview, components, flows, concerns, decisions) read in a local viewer with diagrams, a mind map and a code panel.",
   "author": { "name": "yowdendrift", "url": "https://github.com/yowdendrift" },
   "homepage": "https://github.com/yowdendrift/codedocs",
