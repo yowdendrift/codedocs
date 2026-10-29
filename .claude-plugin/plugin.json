@@ -2,8 +2,8 @@
   "name": "codedocs",
   "version": "0.5.0",
   "description": "Documents a codebase so a person can understand it: layered markdown docs (overview, components, flows, concerns, decisions) read in a local viewer with diagrams, a mind map and a code panel.",
-  "author": { "name": "YOUR-GITHUB-USER", "url": "https://github.com/YOUR-GITHUB-USER" },
-  "homepage": "https://github.com/YOUR-GITHUB-USER/codedocs",
-  "repository": "https://github.com/YOUR-GITHUB-USER/codedocs",
+  "author": { "name": "yowdendrift", "url": "https://github.com/yowdendrift" },
+  "homepage": "https://github.com/yowdendrift/codedocs",
+  "repository": "https://github.com/yowdendrift/codedocs",
   "keywords": ["documentation", "architecture", "onboarding", "code-understanding", "mermaid"]
 }

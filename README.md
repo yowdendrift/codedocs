@@ -29,13 +29,13 @@ real file beside the text.
 In Claude Code:
 
 ```
-/plugin install codedocs --marketplace YOUR-GITHUB-USER/codedocs
+/plugin install codedocs --marketplace yowdendrift/codedocs
 ```
 
 On Claude Code older than 2.1.275, add the marketplace first:
 
 ```
-/plugin marketplace add YOUR-GITHUB-USER/codedocs
+/plugin marketplace add yowdendrift/codedocs
 /plugin install codedocs@codedocs
 ```
 
@@ -46,7 +46,7 @@ To get new versions, run `/plugin marketplace update codedocs`, or turn on auto-
 marketplace under **Marketplaces** in `/plugin`.
 
 The first command downloads the tool for your machine (one file, about 9 MB) from this
-repository's [releases](https://github.com/YOUR-GITHUB-USER/codedocs/releases) and checks its
+repository's [releases](https://github.com/yowdendrift/codedocs/releases) and checks its
 checksum. Nothing else needs to be installed. Git is optional; with it, updates only look at
 what changed.
 
@@ -62,7 +62,7 @@ Clone this repository and link (or copy) `skills/codedocs` into your agent's ski
 | Claude Code, by hand | `~/.claude/skills/codedocs` | `/codedocs init` |
 
 ```sh
-git clone https://github.com/YOUR-GITHUB-USER/codedocs
+git clone https://github.com/yowdendrift/codedocs
 ln -s "$PWD/codedocs/skills/codedocs" ~/.agents/skills/codedocs
 ```
 
