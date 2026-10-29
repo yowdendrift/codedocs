@@ -1,0 +1,9 @@
+# Shell scripts must keep LF line endings or they fail in bash (Git Bash on Windows included).
+skills/codedocs/bin/codedocs text eol=lf
+*.sh text eol=lf
+*.go text eol=lf
+*.yml text eol=lf
+# Binaries and embedded assets are never touched.
+*.exe binary
+skills/codedocs/bin/codedocs-* binary
+*.gz binary

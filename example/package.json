@@ -1,0 +1,7 @@
+{
+  "name": "tiny-editor",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A tiny, fake video editor used to test the /docs skill.",
+  "scripts": { "dev": "vite", "test": "vitest" }
+}

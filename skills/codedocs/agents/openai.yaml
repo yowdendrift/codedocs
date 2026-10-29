@@ -1,0 +1,6 @@
+# Codex: show a friendly name, and only run when asked ($codedocs), never on its own.
+interface:
+  display_name: "codedocs"
+  short_description: "Codebase documentation for humans, read in a local viewer"
+policy:
+  allow_implicit_invocation: false

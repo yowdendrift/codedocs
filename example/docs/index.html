@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codebase docs</title>
+<!-- Viewer for /codedocs. Built into the codedocs binary; the copy in a docs folder is
+     replaced on /codedocs upgrade. Content lives in content/*.md, structure in
+     manifest.json, look in theme.css. -->
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+<button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu">&#9776;</button>
+<button class="icon-btn rail-btn" id="railBtn" aria-label="On this page" title="On this page" hidden><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 8h8M2 12.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <a href="#/" id="brand">Codebase docs<small id="brandSub"></small></a>
+      <button class="icon-btn" id="themeBtn" title="Theme: auto" aria-label="Toggle theme"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
+    </div>
+    <input class="search" id="search" type="search" placeholder="Search docs  ( / )" autocomplete="off">
+    <nav id="nav"></nav>
+  </aside>
+  <main class="main" id="main">
+    <article class="page" id="page"><p class="empty">Loading…</p></article>
+    <aside class="rail" id="rail"></aside>
+  </main>
+</div>
+<aside class="code-panel" id="codePanel" aria-label="Code" hidden>
+  <div class="code-resize" id="codeResize" title="Drag to resize"></div>
+  <header class="code-head">
+    <div class="code-title">
+      <button class="icon-btn" id="codeBack" title="Back" hidden>&#8592;</button>
+      <div class="code-path" id="codePath"></div>
+      <button class="icon-btn" id="codeFiles" title="Browse the code" hidden><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.5a1 1 0 0 1 1-1h3.6l1.4 1.6h6a1 1 0 0 1 1 1v7.4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
+      <button class="icon-btn" id="codeEditor" title="Open in editor" hidden><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 2h5v5M14 2 7 9M12 9v4.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5H7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+      <button class="icon-btn" id="codeClose" title="Close (Esc)" aria-label="Close">&#10005;</button>
+    </div>
+    <div class="code-meta" id="codeMeta"></div>
+  </header>
+  <div class="code-body" id="codeBody"></div>
+  <div class="toast" id="toast" hidden></div>
+</aside>
+<div class="dlg" id="dlg" hidden role="dialog" aria-label="Diagram">
+  <div class="dlg-box">
+    <div class="dlg-view" id="dlgView"><div class="dlg-stage" id="dlgStage"></div></div>
+    <div class="dlg-bar">
+      <button class="icon-btn" id="dlgOut" title="Zoom out (-)">&#8722;</button>
+      <span class="dlg-zoom" id="dlgZoom">100%</span>
+      <button class="icon-btn" id="dlgIn" title="Zoom in (+)">+</button>
+      <button class="icon-btn" id="dlgFit" title="Fit (0)"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+      <button class="icon-btn" id="dlgClose" title="Close (Esc)">&#10005;</button>
+    </div>
+    <div class="dlg-hint">Scroll to zoom · drag to move · double-click to fit</div>
+  </div>
+</div>
+<script>
+(() => {
+  // Browser libraries: served by the codedocs binary from lib/, or from the CDN when the
+  // docs folder is hosted as plain static files.
+  const LIBS = {
+    marked: ['lib/marked.js', 'https://cdn.jsdelivr.net/npm/marked@18.1.2/lib/marked.umd.js'],
+    mermaid: ['lib/mermaid.js', 'https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.min.js'],
+    d3: ['lib/d3.js', 'https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js'],
+    markmapView: ['lib/markmap-view.js', 'https://cdn.jsdelivr.net/npm/markmap-view@0.18.12/dist/browser/index.js'],
+    markmapLib: ['lib/markmap-lib.js', 'https://cdn.jsdelivr.net/npm/markmap-lib@0.18.12/dist/browser/index.iife.js'],
+    hljs: ['lib/highlight.js', 'https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.12.0/highlight.min.js'],
+  };
+  const GROUPS = [
+    ['overview', 'Start here'], ['topic', 'Topics'], ['component', 'Components'], ['flow', 'Flows'], ['concern', 'Concerns'],
+    ['glossary', 'Reference'], ['gotchas', 'Reference'], ['decision', 'Decisions'], ['change', 'Changes'], ['page', 'Other'],
+  ];
+  const KIND_LABEL = { overview: 'Overview', topic: 'Topic', component: 'Component', flow: 'Flow', concern: 'Concern', decision: 'Decision', glossary: 'Glossary', gotchas: 'Gotchas', change: 'Change', page: 'Page', map: 'Map' };
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const slug = s => String(s).toLowerCase().replace(/<[^>]+>/g, '').replace(/[`*_~]/g, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
+  const kindVar = k => `--kind: var(--kind-${k === 'map' ? 'overview' : k})`;
+
+  let M = null;               // manifest
+  let API = null;             // code panel API (only when served by the codedocs binary)
+  const byId = new Map();     // page id -> manifest entry
+  const textCache = new Map();
+  const loaded = {};
+
+  // ---------- theme ----------
+  const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+  let theme = store.get('docs-theme') || 'auto';
+  const effectiveDark = () => theme === 'dark' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  function applyTheme() {
+    if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    $('#themeBtn').title = `Theme: ${theme}`;
+  }
+  $('#themeBtn').onclick = () => { theme = { auto: 'light', light: 'dark', dark: 'auto' }[theme]; store.set('docs-theme', theme); applyTheme(); route(); };
+  applyTheme();
+  $('#menuBtn').onclick = () => { document.body.classList.remove('rail-open'); document.body.classList.toggle('nav-open'); };
+  // On narrow screens the rail becomes a drawer from the right, opened with this button.
+  $('#railBtn').onclick = () => { document.body.classList.remove('nav-open'); document.body.classList.toggle('rail-open'); };
+  const syncRailBtn = () => { $('#railBtn').hidden = !$('#rail').innerHTML.trim(); if ($('#railBtn').hidden) document.body.classList.remove('rail-open'); };
+  new MutationObserver(syncRailBtn).observe($('#rail'), { childList: true });
+  document.addEventListener('click', e => {
+    if (!document.body.classList.contains('rail-open')) return;
+    if (e.target.closest('#rail a[href^="#"]:not([data-tree-file])') ) document.body.classList.remove('rail-open');
+    else if (!e.target.closest('#rail, #railBtn')) document.body.classList.remove('rail-open');
+  });
+
+  // ---------- loading ----------
+  function loadScript(src) {
+    return loaded[src] ||= new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => { delete loaded[src]; s.remove(); rej(new Error('Could not load ' + src)); }; document.head.appendChild(s); });
+  }
+  async function loadLib(name) {
+    const [local, cdn] = LIBS[name];
+    try { await loadScript(local); } catch { await loadScript(cdn); }
+  }
+  async function getText(file) {
+    if (textCache.has(file)) return textCache.get(file);
+    const r = await fetch('content/' + file, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`content/${file}: ${r.status}`);
+    const t = (await r.text()).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+    textCache.set(file, t);
+    return t;
+  }
+
+  // ---------- code refs ----------
+  const REF = /^([A-Za-z0-9_.\-\/@~+]+\.[A-Za-z0-9]+)(?::(\d+)(?:-(\d+))?)?(?:#([A-Za-z_$][\w$.]*))?$/;
+  function editorHref(file, line) {
+    const editor = M.editor;
+    if (editor !== 'vscode' && editor !== 'cursor') return null;
+    const root = (M.repo_root_abs || '').replace(/\/$/, '').replace(/^\/+/, '');
+    return `${editor}://file/${encodeURI(root + '/' + file)}:${line || 1}`;
+  }
+  function refHtml(text) {
+    const m = text.match(REF);
+    if (!m || (!m[1].includes('/') && !m[2] && !m[4])) return null;
+    const [, file, line, end, symbol] = m;
+    const ln = line || (symbol && M.symbols[`${file}#${symbol}`]) || '';
+    const data = `data-file="${esc(file)}" data-line="${esc(ln)}" data-end="${esc(end || '')}" data-symbol="${esc(symbol || '')}"`;
+    const ed = editorHref(file, ln);
+    if (API) return `<a class="ref" href="${esc(ed || '#')}" ${data} title="Show ${esc(file)}${ln ? ' line ' + ln : ''}${ed ? ' (Ctrl+click: open in editor)' : ''}">${esc(text)}</a>`;
+    if (ed) return `<a class="ref" href="${esc(ed)}" title="Open in ${M.editor}: ${esc(file)}${ln ? ' line ' + ln : ''}">${esc(text)}</a>`;
+    return `<span class="ref" title="${esc(file)}${ln ? ' line ' + ln : ''}">${esc(text)}</span>`;
+  }
+
+  // ---------- markdown ----------
+  let currentFile = '';
+  let currentPageId = '';     // page shown in the main column
+  let codeOwner = null;       // component that owns the file open in the panel
+  const resolvePage = href => {
+    const base = currentFile.split('/').slice(0, -1);
+    for (const part of href.split('/')) { if (part === '..') base.pop(); else if (part !== '.') base.push(part); }
+    return base.join('/').replace(/\.md$/, '');
+  };
+  function setupMarked() {
+    marked.use({
+      gfm: true,
+      renderer: {
+        code({ text, lang }) {
+          if ((lang || '').trim() === 'mermaid') return `<div class="diagram mermaid-src">${esc(text)}</div>`;
+          return false;
+        },
+        codespan({ text }) {
+          const raw = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+          return refHtml(raw) || false;
+        },
+        link({ href, title, tokens }) {
+          const inner = this.parser.parseInline(tokens);
+          const m = href.match(/^(?!\w+:)([^#]+\.md)(#.*)?$/);
+          if (m) {
+            const id = resolvePage(m[1]);
+            const section = m[2] ? '::' + m[2].slice(1) : '';
+            return `<a href="#/${esc(id)}${esc(section)}"${title ? ` title="${esc(title)}"` : ''}>${inner}</a>`;
+          }
+          return false;
+        },
+        heading({ tokens, depth }) {
+          const inner = this.parser.parseInline(tokens);
+          return `<h${depth} id="${slug(inner)}">${inner}</h${depth}>\n`;
+        },
+        blockquote({ tokens }) {
+          const first = tokens[0];
+          const m = first && first.type === 'paragraph' && first.raw.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION|INFERRED|INSIGHT)\]\s*/i);
+          if (!m) return false;
+          const kind = m[1].toLowerCase();
+          first.raw = first.raw.slice(m[0].length);
+          first.text = first.text.replace(/^\[![A-Za-z]+\]\s*/, '');
+          first.tokens = marked.Lexer.lexInline(first.text);
+          const label = kind === 'inferred' ? 'Inferred from the code' : kind === 'insight' ? 'From the team' : kind;
+          return `<div class="callout ${kind}"><div class="callout-title">${label}</div>${this.parser.parse(tokens)}</div>`;
+        },
+      },
+    });
+  }
+  function tagInferred(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.nodeValue.includes('(inferred)') && !n.parentElement.closest('code,pre,.callout-title') ? 1 : 3 });
+    const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const n of nodes) {
+      const frag = document.createDocumentFragment();
+      n.nodeValue.split('(inferred)').forEach((part, i, arr) => {
+        frag.append(part);
+        if (i < arr.length - 1) { const s = document.createElement('span'); s.className = 'inferred-tag'; s.textContent = 'inferred'; s.title = 'Worked out from the code, not confirmed by a person'; frag.append(s); }
+      });
+      n.replaceWith(frag);
+    }
+  }
+  async function renderDiagrams(root) {
+    const blocks = [...root.querySelectorAll('.mermaid-src')];
+    if (!blocks.length) return;
+    try {
+      await loadLib('mermaid');
+      mermaid.initialize({ startOnLoad: false, theme: effectiveDark() ? 'dark' : 'neutral', securityLevel: 'strict', fontFamily: getComputedStyle(document.body).fontFamily });
+    } catch (e) { blocks.forEach(b => { b.classList.add('error'); b.textContent = e.message + '\n\n' + b.textContent; }); return; }
+    let n = 0;
+    for (const b of blocks) {
+      const src = b.textContent;
+      try { const { svg } = await mermaid.render(`mmd-${Date.now()}-${n++}`, src); b.innerHTML = svg + '<button class="icon-btn expand" title="Open larger" aria-label="Open larger"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 2h4v4M14 2 9 7M6 14H2v-4M2 14l5-5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>'; b.classList.remove('mermaid-src'); }
+      catch (e) { b.classList.add('error'); b.textContent = `Diagram error: ${e.message || e}\n\n${src}`; }
+    }
+  }
+
+  // ---------- code panel ----------
+  const LANG = {
+    ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript', js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript',
+    php: 'php', go: 'go', py: 'python', gd: 'python', rb: 'ruby', rs: 'rust', java: 'java', kt: 'kotlin', kts: 'kotlin', cs: 'csharp',
+    c: 'c', h: 'c', cc: 'cpp', cpp: 'cpp', hpp: 'cpp', m: 'objectivec', mm: 'objectivec', swift: 'swift', lua: 'lua', sql: 'sql', r: 'r', pl: 'perl',
+    css: 'css', scss: 'scss', less: 'less', json: 'json', yml: 'yaml', yaml: 'yaml', toml: 'ini', ini: 'ini', cfg: 'ini', conf: 'ini', godot: 'ini', tscn: 'ini', tres: 'ini',
+    md: 'markdown', html: 'xml', htm: 'xml', xml: 'xml', svg: 'xml', vue: 'xml', svelte: 'xml', twig: 'xml', sh: 'bash', bash: 'bash', zsh: 'bash',
+    ps1: 'powershell', bat: 'dos', dockerfile: 'dockerfile', graphql: 'graphql', diff: 'diff', wasm: 'wasm', mk: 'makefile',
+  };
+  const langFor = file => { const b = file.split('/').pop().toLowerCase(); if (b === 'dockerfile') return 'dockerfile'; if (b === 'makefile') return 'makefile'; return LANG[b.includes('.') ? b.split('.').pop() : ''] || ''; };
+  const panel = $('#codePanel');
+  let codeState = null;       // { file, line, end } or { list, title }
+  const codeHistory = [];     // earlier panel states, for the back button
+
+  // Split highlighted HTML into lines, re-opening spans that cross line breaks.
+  function splitHtmlLines(html) {
+    const out = [], stack = [];
+    let cur = '', last = 0, m;
+    const re = /<span class="([^"]*)">|<\/span>|\n/g;
+    while ((m = re.exec(html))) {
+      cur += html.slice(last, m.index); last = re.lastIndex;
+      if (m[0] === '\n') { out.push(cur + '</span>'.repeat(stack.length)); cur = stack.map(c => `<span class="${c}">`).join(''); }
+      else if (m[0] === '</span>') { stack.pop(); cur += m[0]; }
+      else { stack.push(m[1]); cur += m[0]; }
+    }
+    out.push(cur + html.slice(last));
+    return out;
+  }
+  async function highlight(text, lang) {
+    try {
+      await loadLib('hljs');
+      if (lang && hljs.getLanguage(lang)) return hljs.highlight(text, { language: lang, ignoreIllegals: true }).value;
+    } catch {}
+    return esc(text);
+  }
+
+  // ---- code links: the server's language packs resolve imports; we make them clickable. ----
+  // Wrap the nth occurrence of each link's text on its line. The text can span several
+  // highlight spans (e.g. PHP namespaces), so each text-node piece gets its own wrapper.
+  function applyLinks(links) {
+    for (const l of links || []) {
+      const row = document.querySelector(`#code-L${l.line} .cc`);
+      if (!row) continue;
+      const nodes = [], walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+      let full = '', n;
+      while ((n = walker.nextNode())) { nodes.push({ n, at: full.length }); full += n.nodeValue; }
+      let idx = -1, from = 0;
+      for (let k = 0; k <= l.nth; k++) { idx = full.indexOf(l.text, from); if (idx < 0) break; from = idx + l.text.length; }
+      if (idx < 0) continue;
+      const end = idx + l.text.length;
+      for (const { n: node, at } of nodes) {
+        const len = node.nodeValue.length; // read before splitting: splitText shortens node
+        const a = Math.max(idx, at), b = Math.min(end, at + len);
+        if (a >= b || node.parentElement.closest('.imp')) continue;
+        let piece = node;
+        if (a > at) piece = piece.splitText(a - at);
+        if (b - a < piece.nodeValue.length) piece.splitText(b - a);
+        const w = document.createElement('span');
+        w.className = 'imp'; w.dataset.path = l.path; if (l.symbol) w.dataset.symbol = l.symbol; if (l.dir) w.dataset.dir = '1';
+        w.title = l.dir ? `Show the ${l.path} package` : `Open ${l.path}${l.symbol ? ' at ' + l.symbol : ''}`;
+        piece.replaceWith(w); w.append(piece);
+      }
+    }
+  }
+  function followLink(el) {
+    pushHistory();
+    if (el.dataset.dir) showFileList([el.dataset.path === '.' ? '*' : el.dataset.path + '/*'], `${el.dataset.path === '.' ? 'root' : el.dataset.path} (package)`);
+    else showCode(el.dataset.path, 0, 0, el.dataset.symbol || '');
+  }
+  // Ctrl/Cmd+click a name: go to its definition.
+  function wordAt(x, y) {
+    let node, off;
+    if (document.caretPositionFromPoint) { const p = document.caretPositionFromPoint(x, y); node = p?.offsetNode; off = p?.offset; }
+    else if (document.caretRangeFromPoint) { const r = document.caretRangeFromPoint(x, y); node = r?.startContainer; off = r?.startOffset; }
+    if (!node || node.nodeType !== 3) return '';
+    const s = node.nodeValue, isW = c => /[\w$]/.test(c);
+    let a = off, b = off;
+    while (a > 0 && isW(s[a - 1])) a--;
+    while (b < s.length && isW(s[b])) b++;
+    const w = s.slice(a, b);
+    return /^[A-Za-z_$][\w$]*$/.test(w) ? w : '';
+  }
+  async function goToDefinition(name) {
+    const from = codeState?.file || '';
+    try {
+      const r = await fetch(`api/definition?name=${encodeURIComponent(name)}&from=${encodeURIComponent(from)}`, { cache: 'no-store' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || r.status);
+      const ms = d.matches || [];
+      if (!ms.length) return toast(`No definition found for ${name}`);
+      if (ms.length === 1 && ms[0].file === from) { setRange(ms[0].line); scrollToLine(ms[0].line); codeState.line = ms[0].line; return; }
+      pushHistory();
+      if (ms.length === 1) showCode(ms[0].file, ms[0].line, 0, '');
+      else showMatches(name, ms);
+    } catch (e) { toast(`Couldn't look up ${name}: ${e.message}`); }
+  }
+  function showMatches(name, matches, scroll) {
+    openPanel();
+    codeState = { matches, name };
+    updateBack();
+    $('#codeEditor').hidden = true;
+    $('#codePath').innerHTML = `<strong>${esc(name)}</strong>`;
+    $('#codeMeta').innerHTML = `<div class="muted">${matches.length} possible definitions${matches.length >= 40 ? ' (first 40)' : ''}. Pick one.</div>`;
+    $('#codeBody').innerHTML = `<ul class="file-list">${matches.map(m => `<li><a href="#" data-open="${esc(m.file)}" data-line="${m.line}"><code>${esc(m.file)}<span class="muted">:${m.line}</span></code></a></li>`).join('')}</ul>`;
+    if (scroll != null) $('#codeBody').scrollTop = scroll;
+  }
+  function scrollToLine(line) {
+    const el = document.getElementById('code-L' + line), body = $('#codeBody');
+    if (el) body.scrollTop = Math.max(0, el.offsetTop - body.clientHeight / 4);
+  }
+  const setCtrl = on => document.body.classList.toggle('ctrl-down', on);
+  window.addEventListener('keydown', e => { if (e.key === 'Control' || e.key === 'Meta') setCtrl(true); });
+  window.addEventListener('keyup', e => { if (e.key === 'Control' || e.key === 'Meta') setCtrl(false); });
+  window.addEventListener('blur', () => setCtrl(false));
+
+  function openPanel() {
+    panel.hidden = false;
+    document.body.classList.add('code-open');
+  }
+  function closePanel() {
+    panel.hidden = true;
+    document.body.classList.remove('code-open');
+    codeState = null;
+    codeHistory.length = 0;
+  }
+  function pushHistory() {
+    if (codeState) codeHistory.push({ ...codeState, scroll: $('#codeBody').scrollTop });
+  }
+  // "Browse the code" in the panel header (the rail, which also has it, is hidden while the
+  // panel is open): the open file's component, else the current page's code.
+  function browseTarget() {
+    const owner = codeOwner && byId.get(codeOwner);
+    if (owner?.paths?.length) return [owner.paths, `${owner.title}: files`];
+    const p = byId.get(currentPageId);
+    if (p?.paths?.length) return [p.paths, `${p.title}: files`];
+    if (p?.refs?.length) return [p.refs, `${p.title}: files mentioned`];
+    return null;
+  }
+  function updateFilesButton() {
+    const t = API && browseTarget();
+    const btn = $('#codeFiles');
+    btn.hidden = !t;
+    if (t) btn.title = `Browse the code: ${t[1]}`;
+  }
+  $('#codeFiles').onclick = () => {
+    const t = browseTarget();
+    if (!t) return;
+    pushHistory();
+    showFileList(t[0], t[1]);
+  };
+  function updateBack() {
+    const prev = codeHistory[codeHistory.length - 1];
+    $('#codeBack').hidden = !prev;
+    if (prev) $('#codeBack').title = prev.list ? `Back to ${prev.title}` : prev.matches ? `Back to ${prev.name}` : `Back to ${prev.file.split('/').pop()}`;
+  }
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 2200);
+  }
+  function setRange(start, end) {
+    panel.querySelectorAll('.cl.hl').forEach(el => el.classList.remove('hl'));
+    if (!start) return;
+    for (let n = start; n <= (end || start); n++) document.getElementById('code-L' + n)?.classList.add('hl');
+  }
+  async function showCode(file, line, end, symbol, scroll) {
+    openPanel();
+    codeState = { file, line, end };
+    updateBack();
+    $('#codePath').innerHTML = `<code>${esc(file)}</code>`;
+    $('#codeMeta').innerHTML = '';
+    $('#codeBody').innerHTML = '<p class="empty pad">Loading…</p>';
+    const ed = $('#codeEditor');
+    ed.hidden = !editorHref(file, line);
+    ed.onclick = () => { location.href = editorHref(file, codeState?.line || line); };
+    let data;
+    try {
+      const r = await fetch(`api/file?path=${encodeURIComponent(file)}${symbol && !+line ? '&symbol=' + encodeURIComponent(symbol) : ''}`, { cache: 'no-store' });
+      data = await r.json();
+      if (!r.ok) throw new Error(data.error || r.status);
+    } catch (e) { $('#codeBody').innerHTML = `<p class="notice pad">${esc(e.message)}</p>`; return; }
+    if (codeState?.file !== file) return; // superseded
+    line = +line || data.symbolLine || 0; end = +end || 0;
+    codeState.line = line;
+    codeOwner = data.components?.[0]?.id || null;
+    updateFilesButton();
+    const rows = splitHtmlLines(await highlight(data.text, langFor(file)));
+    const owners = (data.components || []).map(c => `<a href="#/${esc(c.id)}"><span class="dot" style="${kindVar('component')}"></span>${esc(c.title)}</a>`);
+    const citing = M.pages.filter(p => (p.refs || []).includes(file) && !(data.components || []).some(c => c.id === p.id))
+      .map(p => `<a href="#/${esc(p.id)}"><span class="dot" style="${kindVar(p.kind)}"></span>${esc(p.title)}</a>`);
+    $('#codeMeta').innerHTML = [
+      `<span class="muted">${data.lines} lines${line ? ` · line ${line}${end && end !== line ? '–' + end : ''}` : ''}${symbol && !line ? ` · <em>${esc(symbol)}</em> not found here` : ''}</span>`,
+      owners.length ? `<span class="muted">Part of</span> ${owners.join(' ')}` : '',
+      `<span class="muted hint">Click an import to open it · ${navigator.platform.startsWith('Mac') ? 'Cmd' : 'Ctrl'}+click a name for its definition</span>`,
+      citing.length ? `<span class="muted">Mentioned in</span> ${citing.slice(0, 6).join(' ')}${citing.length > 6 ? ` <span class="muted">+${citing.length - 6}</span>` : ''}` : '',
+    ].filter(Boolean).map(s => `<div>${s}</div>`).join('');
+    $('#codeBody').innerHTML = `<div class="code hljs">${rows.map((h, i) => `<div class="cl" id="code-L${i + 1}"><a class="cn" data-n="${i + 1}">${i + 1}</a><span class="cc">${h || ' '}</span></div>`).join('')}</div>`;
+    applyLinks(data.links);
+    setRange(line, end);
+    if (scroll != null) $('#codeBody').scrollTop = scroll;
+    else if (line) scrollToLine(line);
+  }
+  async function showFileList(globs, title, scroll) {
+    openPanel();
+    codeState = { list: globs, title };
+    codeOwner = null;
+    updateFilesButton();
+    updateBack();
+    $('#codeEditor').hidden = true;
+    $('#codePath').innerHTML = `<strong>${esc(title)}</strong>`;
+    $('#codeMeta').innerHTML = `<div class="muted">${globs.map(g => `<code>${esc(g)}</code>`).join(' ')}</div>`;
+    $('#codeBody').innerHTML = '<p class="empty pad">Loading…</p>';
+    try {
+      const r = await fetch('api/files?' + globs.map(g => 'glob=' + encodeURIComponent(g)).join('&'), { cache: 'no-store' });
+      const { files } = await r.json();
+      if (codeState?.list !== globs) return;
+      const refCount = f => M.pages.filter(p => (p.refs || []).includes(f)).length;
+      $('#codeBody').innerHTML = files.length
+        ? `<p class="muted pad">${files.length} file${files.length === 1 ? '' : 's'}. Files the docs mention are marked.</p><ul class="file-list">${files.map(f => { const n = refCount(f); return `<li><a href="#" data-open="${esc(f)}"><code>${esc(f)}</code>${n ? `<span class="pill" title="Mentioned on ${n} page(s)">${n}</span>` : ''}</a></li>`; }).join('')}</ul>`
+        : '<p class="notice pad">No files match.</p>';
+      if (scroll != null) $('#codeBody').scrollTop = scroll;
+    } catch (e) { $('#codeBody').innerHTML = `<p class="notice pad">${esc(e.message)}</p>`; }
+  }
+  $('#codeClose').onclick = closePanel;
+  $('#codeBack').onclick = () => {
+    const prev = codeHistory.pop();
+    if (!prev) return;
+    if (prev.list) showFileList(prev.list, prev.title, prev.scroll);
+    else if (prev.matches) showMatches(prev.name, prev.matches, prev.scroll);
+    else showCode(prev.file, prev.line, prev.end, '', prev.scroll);
+  };
+  $('#codeBody').addEventListener('click', e => {
+    const open = e.target.closest('[data-open]');
+    if (open) { e.preventDefault(); pushHistory(); showCode(open.dataset.open, +open.dataset.line || 0, 0, ''); return; }
+    const imp = e.target.closest('.imp');
+    if (imp) { e.preventDefault(); followLink(imp); return; }
+    if ((e.ctrlKey || e.metaKey) && e.target.closest('.cc') && codeState?.file) {
+      const w = wordAt(e.clientX, e.clientY);
+      if (w) { e.preventDefault(); goToDefinition(w); }
+      return;
+    }
+    const num = e.target.closest('.cn');
+    if (num && codeState?.file) {
+      const n = +num.dataset.n;
+      if (e.shiftKey && codeState.line) { const a = Math.min(codeState.line, n), b = Math.max(codeState.line, n); setRange(a, b); codeState.end = b; codeState.line = a; }
+      else { setRange(n); codeState.line = n; codeState.end = 0; }
+      const ref = `${codeState.file}:${codeState.line}${codeState.end && codeState.end !== codeState.line ? '-' + codeState.end : ''}`;
+      navigator.clipboard?.writeText('`' + ref + '`').then(() => toast(`Copied \`${ref}\``), () => toast(ref));
+    }
+  });
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a.ref[data-file]');
+    if (a && API) {
+      if ((e.ctrlKey || e.metaKey) && a.getAttribute('href') !== '#') return; // let the editor link through
+      e.preventDefault();
+      codeHistory.length = 0;
+      showCode(a.dataset.file, a.dataset.line, a.dataset.end, a.dataset.symbol);
+      return;
+    }
+    const tf = e.target.closest('[data-tree-file]');
+    if (tf && API) { e.preventDefault(); codeHistory.length = 0; showCode(tf.dataset.treeFile, 0, 0, ''); return; }
+    const b = e.target.closest('[data-browse]');
+    if (b) { e.preventDefault(); codeHistory.length = 0; showFileList(JSON.parse(b.dataset.browse), b.dataset.title); }
+  });
+  // ---------- diagram viewer ----------
+  const dlg = $('#dlg'), dlgView = $('#dlgView'), dlgStage = $('#dlgStage');
+  const dv = { x: 0, y: 0, s: 1, w: 0, h: 0 };
+  function dlgApply() {
+    dlgStage.style.transform = `translate(${dv.x}px, ${dv.y}px) scale(${dv.s})`;
+    $('#dlgZoom').textContent = Math.round(dv.s * 100) + '%';
+  }
+  // Fit the whole diagram. When opening a very wide or tall one, that would be unreadably
+  // small, so start at a readable size from its left (or top) edge instead; "fit" shows it all.
+  function dlgFit(opening) {
+    const r = dlgView.getBoundingClientRect(), pad = 48;
+    const fw = (r.width - pad * 2) / dv.w, fh = (r.height - pad * 2) / dv.h;
+    dv.s = Math.min(fw, fh, 4);
+    dv.x = (r.width - dv.w * dv.s) / 2; dv.y = (r.height - dv.h * dv.s) / 2;
+    if (opening === true && dv.s < 0.5) {
+      dv.s = Math.min(1, Math.max(fw, fh));
+      if (fw < fh) { dv.x = pad; dv.y = (r.height - dv.h * dv.s) / 2; }
+      else { dv.y = pad; dv.x = (r.width - dv.w * dv.s) / 2; }
+    }
+    dlgApply();
+  }
+  function dlgZoomAt(factor, cx, cy) {
+    const ns = Math.min(Math.max(dv.s * factor, 0.05), 30);
+    dv.x = cx - (cx - dv.x) * (ns / dv.s); dv.y = cy - (cy - dv.y) * (ns / dv.s); dv.s = ns;
+    dlgApply();
+  }
+  function openDiagram(svg) {
+    const vb = svg.viewBox?.baseVal, box = svg.getBoundingClientRect();
+    dv.w = vb?.width || box.width; dv.h = vb?.height || box.height;
+    const clone = svg.cloneNode(true);
+    clone.removeAttribute('style'); clone.setAttribute('width', dv.w); clone.setAttribute('height', dv.h);
+    dlgStage.replaceChildren(clone);
+    dlg.hidden = false;
+    dlgFit(true);
+  }
+  function closeDiagram() { dlg.hidden = true; dlgStage.replaceChildren(); }
+  document.addEventListener('click', e => {
+    const d = e.target.closest('.diagram');
+    if (!d || d.classList.contains('error') || d.classList.contains('mermaid-src') || e.target.closest('a')) return;
+    const svg = d.querySelector(':scope > svg');
+    if (svg) openDiagram(svg);
+  });
+  dlgView.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = dlgView.getBoundingClientRect();
+    dlgZoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0018)), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+  dlgView.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    dlgView.setPointerCapture(e.pointerId); dlgView.classList.add('dragging');
+    let lx = e.clientX, ly = e.clientY;
+    const move = ev => { dv.x += ev.clientX - lx; dv.y += ev.clientY - ly; lx = ev.clientX; ly = ev.clientY; dlgApply(); };
+    const up = () => { dlgView.removeEventListener('pointermove', move); dlgView.classList.remove('dragging'); };
+    dlgView.addEventListener('pointermove', move); dlgView.addEventListener('pointerup', up, { once: true });
+  });
+  dlgView.addEventListener('dblclick', () => dlgFit());
+  const dlgCenter = () => { const r = dlgView.getBoundingClientRect(); return [r.width / 2, r.height / 2]; };
+  $('#dlgIn').onclick = () => dlgZoomAt(1.25, ...dlgCenter());
+  $('#dlgOut').onclick = () => dlgZoomAt(0.8, ...dlgCenter());
+  $('#dlgFit').onclick = () => dlgFit();
+  $('#dlgClose').onclick = closeDiagram;
+  dlg.addEventListener('click', e => { if (e.target === dlg) closeDiagram(); });
+  window.addEventListener('resize', () => { if (!dlg.hidden) dlgFit(); });
+  document.addEventListener('keydown', e => {
+    if (dlg.hidden) return;
+    if (e.key === 'Escape') { e.stopImmediatePropagation(); closeDiagram(); }
+    else if (e.key === '+' || e.key === '=') dlgZoomAt(1.25, ...dlgCenter());
+    else if (e.key === '-') dlgZoomAt(0.8, ...dlgCenter());
+    else if (e.key === '0') dlgFit();
+  }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) closePanel(); });
+  // Resizable panel; width remembered per browser.
+  (() => {
+    const saved = store.get('docs-code-width');
+    if (saved) document.documentElement.style.setProperty('--code-width', saved);
+    const handle = $('#codeResize');
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault(); handle.setPointerCapture(e.pointerId); document.body.classList.add('resizing');
+      const move = ev => { const w = Math.min(Math.max(window.innerWidth - ev.clientX, 320), window.innerWidth - 240); document.documentElement.style.setProperty('--code-width', w + 'px'); };
+      const up = () => { handle.removeEventListener('pointermove', move); document.body.classList.remove('resizing'); store.set('docs-code-width', getComputedStyle(document.documentElement).getPropertyValue('--code-width').trim()); };
+      handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up, { once: true });
+    });
+  })();
+
+  // ---------- navigation ----------
+  function buildNav() {
+    const groups = new Map();
+    for (const p of M.pages) {
+      const g = (GROUPS.find(([k]) => k === p.kind) || ['page', 'Other'])[1];
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(p);
+    }
+    let html = '';
+    const start = groups.get('Start here') || [];
+    html += `<div class="nav-group"><h4>Start here</h4>${start.map(navLink).join('')}<a href="#/map" data-id="map"><span class="dot" style="${kindVar('map')}"></span>Map</a></div>`;
+    for (const [g, list] of groups) if (g !== 'Start here') html += `<div class="nav-group"><h4>${g}</h4>${list.map(navLink).join('')}</div>`;
+    $('#nav').innerHTML = html;
+  }
+  const navLink = p => `<a href="#/${esc(p.id)}" data-id="${esc(p.id)}"><span class="dot" style="${kindVar(p.kind)}"></span>${esc(p.title)}</a>`;
+  function markActive(id) {
+    document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.id === id));
+  }
+  const pageLink = id => { const p = byId.get(id); return p ? `<li><a href="#/${esc(id)}"><span class="dot" style="${kindVar(p.kind)}"></span>${esc(p.title)}</a></li>` : ''; };
+
+  function rail(p) {
+    const parts = [];
+    const hs = p.headings.filter(h => h.level <= 3);
+    if (hs.length) parts.push(`<section><h5>On this page</h5><ul>${hs.map(h => `<li class="h${h.level}"><a href="#/${esc(p.id)}::${slug(esc(h.text))}">${esc(h.text)}</a></li>`).join('')}</ul></section>`);
+    const rel = [];
+    if (p.kind === 'component') {
+      if (p.topics?.length) rel.push(['Topics', p.topics]);
+      if (p.flows?.length) rel.push(['Flows through here', p.flows]);
+      if (p.concerns?.length) rel.push(['Concerns that apply', p.concerns]);
+      if (p.decisions?.length) rel.push(['Decisions', p.decisions]);
+    } else if (p.components?.length) rel.push(['Components involved', p.components]);
+    const citing = M.pages.filter(q => q.kind === 'decision' && q.id !== p.id && (q.refs || []).some(r => (p.refs || []).includes(r))).map(q => q.id).filter(id => !(p.decisions || []).includes(id));
+    if (p.kind !== 'decision' && citing.length && p.kind !== 'component') rel.push(['Related decisions', citing.slice(0, 6)]);
+    for (const [t, ids] of rel) parts.push(`<section class="rel"><h5>${t}</h5><ul>${ids.map(pageLink).join('')}</ul></section>`);
+    if (p.paths?.length) {
+      // Served: the real files (filled in by fillRailTree). Static: the path patterns as a tree.
+      parts.push(`<section><h5>Code</h5><div class="tree" id="railTree">${API ? '<span class="muted">Loading…</span>' : treeHtml(p.paths, false)}</div></section>`);
+    } else if (p.refs?.length) {
+      parts.push(`<section><h5>Code mentioned</h5><div class="tree">${treeHtml(p.refs, !!API)}</div></section>`);
+    }
+    return parts.join('');
+  }
+
+  // ---------- file trees (rail) ----------
+  // Folders with a single subfolder and no files are merged ("src/core/ops") to keep it narrow.
+  function treeHtml(paths, clickable, collapseDeep) {
+    const rootNode = { dirs: new Map(), files: [] };
+    for (const f of paths) {
+      const parts = f.split('/');
+      let node = rootNode;
+      for (const d of parts.slice(0, -1)) {
+        if (!node.dirs.has(d)) node.dirs.set(d, { dirs: new Map(), files: [] });
+        node = node.dirs.get(d);
+      }
+      node.files.push({ name: parts[parts.length - 1], path: f });
+    }
+    const mentioned = f => M.pages.some(p => (p.refs || []).includes(f));
+    const render = (node, depth) => {
+      let html = '';
+      for (const [name0, child0] of [...node.dirs].sort((a, b) => a[0].localeCompare(b[0]))) {
+        let name = name0, child = child0;
+        while (child.files.length === 0 && child.dirs.size === 1) {
+          const [n, c] = [...child.dirs][0];
+          name += '/' + n; child = c;
+        }
+        html += `<li><details${collapseDeep && depth > 0 ? '' : ' open'}><summary>${esc(name)}/</summary><ul>${render(child, depth + 1)}</ul></details></li>`;
+      }
+      for (const f of node.files.sort((a, b) => a.name.localeCompare(b.name))) {
+        html += clickable
+          ? `<li><a class="file" href="#" data-tree-file="${esc(f.path)}" title="${esc(f.path)}">${esc(f.name)}${mentioned(f.path) ? '<span class="mark" title="Mentioned in the docs"></span>' : ''}</a></li>`
+          : `<li><span class="file">${esc(f.name)}</span></li>`;
+      }
+      return html;
+    };
+    return `<ul class="tree-root">${render(rootNode, 0)}</ul>`;
+  }
+  async function fillRailTree(p) {
+    const el = document.getElementById('railTree');
+    if (!el || !API) return;
+    try {
+      const r = await fetch('api/files?' + p.paths.map(g => 'glob=' + encodeURIComponent(g)).join('&'), { cache: 'no-store' });
+      const { files } = await r.json();
+      if (document.getElementById('railTree') !== el) return; // page changed
+      el.innerHTML = files.length ? treeHtml(files, true, files.length > 30) + `<p class="muted tree-count">${files.length} file${files.length === 1 ? '' : 's'}</p>` : '<span class="muted">No files match.</span>';
+    } catch { el.innerHTML = treeHtml(p.paths, false); }
+  }
+
+  // ---------- views ----------
+  async function showPage(id, section) {
+    const p = byId.get(id);
+    if (!p) return showMissing(id);
+    currentFile = p.file;
+    currentPageId = id;
+    updateFilesButton();
+    let md;
+    try { md = await getText(p.file); } catch (e) { return showError(e); }
+    const badges = [`<span class="badge" style="${kindVar(p.kind)}">${KIND_LABEL[p.kind] || p.kind}</span>`];
+    const AUD = { admin: 'For admins', admins: 'For admins', developer: 'For developers', developers: 'For developers', both: 'For admins and developers' };
+    if (p.audience) badges.push(`<span class="badge audience" title="Who this page is written for">${esc(AUD[p.audience] || 'For ' + p.audience)}</span>`);
+    if (p.status === 'inferred') badges.push('<span class="badge inferred" title="Reconstructed from the code, not confirmed by a person">Inferred</span>');
+    if (p.status && p.status !== 'inferred') badges.push(`<span class="badge" style="${kindVar('change')}">${esc(p.status)}</span>`);
+    const meta = [p.updated && `Updated ${esc(p.updated)}`, p.generated_with && `written with /codedocs ${esc(p.generated_with)}`, p.locked && 'locked (not regenerated)', `content/${esc(p.file)}`].filter(Boolean).join(' · ');
+    $('#page').innerHTML = `<header class="page-head"><div class="crumbs">${badges.join('')}</div><h1>${esc(p.title)}</h1>${p.summary ? `<p class="summary">${esc(p.summary)}</p>` : ''}</header>
+      <div class="prose" id="prose">${marked.parse(md)}</div><div class="meta">${meta}</div>`;
+    $('#rail').innerHTML = rail(p);
+    fillRailTree(p);
+    $('#main').classList.remove('wide');
+    document.title = `${p.title} · ${M.project}`;
+    markActive(id);
+    tagInferred($('#prose'));
+    await renderDiagrams($('#prose'));
+    if (section) document.getElementById(section)?.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }
+
+  function showHome() {
+    const ov = M.pages.find(p => p.kind === 'overview');
+    if (ov) return showPage(ov.id);
+    const cards = M.pages.map(p => `<a class="card" href="#/${esc(p.id)}" style="${kindVar(p.kind)}"><strong><span class="dot"></span>${esc(p.title)}</strong><span>${esc(p.summary || KIND_LABEL[p.kind])}</span></a>`).join('');
+    $('#page').innerHTML = `<header class="page-head"><h1>${esc(M.project)}</h1></header>${cards ? `<div class="cards">${cards}</div>` : '<p class="notice">No pages yet. Run <code>/codedocs init</code>.</p>'}`;
+    $('#rail').innerHTML = ''; markActive('');
+  }
+
+  // A component's sub-parts: the ### headings under "## Parts" (falls back to any ### headings).
+  function partsOf(p) {
+    const out = [], any = [];
+    let inParts = false;
+    for (const h of p.headings) {
+      if (h.level === 2) inParts = /^parts?$/i.test(h.text.trim());
+      else if (h.level === 3) { any.push(h); if (inParts) out.push(h); }
+    }
+    return out.length ? out : any;
+  }
+
+  async function showMap() {
+    markActive('map');
+    $('#rail').innerHTML = '';
+    $('#main').classList.add('wide');
+    document.title = `Map · ${M.project}`;
+    $('#page').style.maxWidth = 'none';
+    $('#page').innerHTML = `<header class="page-head"><div class="crumbs"><span class="badge" style="${kindVar('map')}">Map</span></div><h1>${esc(M.project)} at a glance</h1><p class="summary">Components and their parts, the flows that run through them, and the concerns that cut across. Click a node to fold it; click a name to open its page.</p></header><div class="map-wrap" id="mapWrap"><svg id="mapSvg"></svg></div>`;
+    const lines = [`# ${M.project}`];
+    const section = (title, kind, withHeadings) => {
+      const list = M.pages.filter(p => p.kind === kind);
+      if (!list.length) return;
+      lines.push(`## ${title}`);
+      for (const p of list) {
+        lines.push(`### [${p.title}](#/${p.id})`);
+        if (withHeadings) for (const h of partsOf(p)) lines.push(`- [${h.text}](#/${p.id}::${slug(esc(h.text))})`);
+        if (kind === 'flow' && p.components?.length) lines.push(`- via ${p.components.map(c => byId.get(c)?.title || c).join(' → ')}`);
+      }
+    };
+    section('Topics', 'topic', false);
+    section('Components', 'component', true);
+    section('Flows', 'flow', false);
+    section('Concerns', 'concern', false);
+    try {
+      await loadLib('d3');
+      await loadLib('markmapView');
+      await loadLib('markmapLib');
+      const { Transformer, Markmap } = window.markmap;
+      const { root } = new Transformer().transform(lines.join('\n'));
+      Markmap.create('#mapSvg', { initialExpandLevel: 4, duration: 300, paddingX: 12, spacingVertical: 8 }, root);
+    } catch (e) { $('#mapWrap').innerHTML = `<p class="notice">Couldn't draw the map: ${esc(e.message)}</p>`; }
+  }
+
+  async function showSearch(q) {
+    const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+    $('#rail').innerHTML = ''; markActive(''); $('#main').classList.remove('wide');
+    $('#page').innerHTML = `<header class="page-head"><h1>Search</h1><p class="summary">“${esc(q)}”</p></header><div id="results"><p class="empty">Searching…</p></div>`;
+    await Promise.all(M.pages.map(p => getText(p.file).catch(() => '')));
+    const plain = t => t.replace(/^(```|~~~)[\s\S]*?^\1/gm, '').split('\n')
+      .map(l => l.replace(/^\s*(#+|[-*+]|\d+\.|>(\s*\[![A-Z]+\])?)\s+/, '').replace(/\|/g, ' ').replace(/[*_`]/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim())
+      .filter(l => l && !/^-{3,}$/.test(l) && !/^[\s:-]+$/.test(l));
+    const hits = [];
+    for (const p of M.pages) {
+      const text = textCache.get(p.file) || '';
+      const hay = (p.title + ' ' + p.summary + ' ' + text).toLowerCase();
+      if (!terms.every(t => hay.includes(t))) continue;
+      let score = terms.reduce((s, t) => s + (p.title.toLowerCase().includes(t) ? 10 : 0) + (p.headings.some(h => h.text.toLowerCase().includes(t)) ? 4 : 0) + Math.min(5, hay.split(t).length - 1), 0);
+      const lineHit = plain(text).find(l => terms.some(t => l.toLowerCase().includes(t))) || p.summary;
+      let snip = esc((lineHit || '').slice(0, 220));
+      for (const t of terms) snip = snip.replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => `<mark>${m}</mark>`);
+      hits.push({ p, score, snip });
+    }
+    hits.sort((a, b) => b.score - a.score);
+    $('#results').innerHTML = hits.length ? hits.map(({ p, snip }) => `<div class="result"><a href="#/${esc(p.id)}"><span class="badge" style="${kindVar(p.kind)}">${KIND_LABEL[p.kind]}</span> ${esc(p.title)}</a><p>${snip}</p></div>`).join('') : '<p class="empty">Nothing found.</p>';
+  }
+
+  function showMissing(id) { $('#page').innerHTML = `<p class="notice">No page called <code>${esc(id)}</code>. It may have been renamed. Rebuild the manifest with <code>/codedocs check</code>.</p>`; $('#rail').innerHTML = ''; }
+  function showError(e) { $('#page').innerHTML = `<p class="notice">${esc(e.message || e)}</p>`; }
+
+  let searchTimer;
+  $('#search').addEventListener('input', e => { clearTimeout(searchTimer); const q = e.target.value.trim(); searchTimer = setTimeout(() => { location.hash = q ? '#/search/' + encodeURIComponent(q) : '#/'; }, 250); });
+  document.addEventListener('keydown', e => { if (e.key === '/' && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); $('#search').focus(); } });
+
+  async function route() {
+    document.body.classList.remove('nav-open', 'rail-open');
+    $('#page').style.maxWidth = '';
+    const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
+    if (!h) return showHome();
+    if (h === 'map') return showMap();
+    if (h.startsWith('search/')) return showSearch(h.slice(7));
+    const [id, section] = h.split('::');
+    return showPage(id, section);
+  }
+
+  async function init() {
+    if (location.protocol === 'file:') {
+      $('#page').innerHTML = '<p class="notice">This viewer needs to be served, not opened as a file. Ask Claude for <code>/codedocs serve</code>, or run <code>codedocs serve</code> in the repo, and open the address it prints.</p>';
+      return;
+    }
+    try { await loadLib('marked'); setupMarked(); }
+    catch (e) { return showError(new Error('Could not load the markdown renderer. Serve the docs with codedocs serve, or check your internet connection.')); }
+    try {
+      const r = await fetch('manifest.json', { cache: 'no-store' });
+      if (!r.ok) throw new Error('manifest.json not found. Run /codedocs init (or /codedocs check to rebuild it).');
+      M = await r.json();
+    } catch (e) { return showError(e); }
+    try { const r = await fetch('api/info', { cache: 'no-store' }); if (r.ok) API = await r.json(); } catch {}
+    M.symbols ||= {};
+    M.pages.forEach(p => byId.set(p.id, p));
+    $('#brand').firstChild.textContent = M.project;
+    $('#brandSub').textContent = `${M.pages.length} pages · /codedocs ${M.skill_version}`;
+    document.title = M.project;
+    buildNav();
+    window.addEventListener('hashchange', route);
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => theme === 'auto' && route());
+    route();
+  }
+  init();
+})();
+</script>
+</body>
+</html>

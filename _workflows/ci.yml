@@ -1,0 +1,27 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tool/go.mod
+      - name: Versions agree
+        run: scripts/check-versions.sh
+      - name: Vet
+        working-directory: tool
+        run: go vet ./...
+      - name: Build every target
+        run: ./build.sh dist
+      - name: Build for this machine and check the example docs
+        run: |
+          ./build.sh
+          cd example
+          ../skills/codedocs/bin/codedocs manifest
+          ../skills/codedocs/bin/codedocs check

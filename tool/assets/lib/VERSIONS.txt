@@ -1,0 +1,7 @@
+Vendored browser libraries (gzipped, embedded in the binary). Refresh with vendor.sh.
+marked 18.1.2           https://github.com/markedjs/marked          MIT
+mermaid 12.2.0          https://github.com/mermaid-js/mermaid       MIT
+d3 7.9.0                https://github.com/d3/d3                    ISC
+markmap-lib 0.18.12     https://github.com/markmap/markmap          MIT
+markmap-view 0.18.12    https://github.com/markmap/markmap          MIT
+highlight.js 11.12.0    https://github.com/highlightjs/highlight.js BSD-3-Clause

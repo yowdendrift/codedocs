@@ -1,0 +1,157 @@
+/* theme.css: the look of your docs.
+   Owned by /codedocs style. The skill never overwrites this file on upgrade,
+   so anything you (or /codedocs style) put here survives.
+   viewer.css only reads these variables; override any of them, or add
+   plain CSS rules below to restyle specific elements. */
+
+:root {
+  /* type */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-heading: var(--font-body);
+  --font-mono: "JetBrains Mono", "JetBrainsMono NFM", "Cascadia Code", Consolas, ui-monospace, monospace;
+  --text-size: 16px;
+  --line-height: 1.65;
+  --heading-weight: 650;
+  --sidebar-width: 17rem;
+  --radius: 6px;
+
+  /* light palette */
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --sidebar-bg: #f3f1ec;
+  --text: #1f2328;
+  --muted: #6a6f76;
+  --border: #e2ded6;
+  --accent: #1f7a6c;
+  --accent-soft: #e3f1ee;
+  --link: #1f6f8b;
+  --code-bg: #f1eee8;
+  --code-text: #3b3f45;
+  --ref-bg: #eef3f6;
+  --ref-text: #1f5f77;
+  --mark: #fff1b8;
+
+  /* page kinds: badges and nav dots */
+  --kind-overview: #1f7a6c;
+  --kind-component: #3a63b8;
+  --kind-flow: #b0532e;
+  --kind-concern: #7b4bb3;
+  --kind-decision: #8a6d1f;
+  --kind-glossary: #4f7a2b;
+  --kind-gotchas: #b23a48;
+  --kind-change: #5c6670;
+  --kind-topic: #b5476f;
+
+  /* callouts */
+  --note: #3a63b8;
+  --tip: #1f7a6c;
+  --warning: #b07a12;
+  --caution: #b23a48;
+  --inferred: #8a6d1f;
+  --insight: #2f7d4f;
+
+  /* scrollbars (thin; leave these out to use the viewer's defaults) */
+  --scrollbar-thumb: #c9c4ba;
+  --scrollbar-thumb-hover: #a8a298;
+  --scrollbar-track: transparent;
+
+  /* code panel */
+  --code-hl: #fdf0c4;
+  --syn-keyword: #9a3e9d;
+  --syn-string: #3c7a2a;
+  --syn-comment: #8a8f96;
+  --syn-number: #a35a12;
+  --syn-function: #2f5fb3;
+  --syn-type: #9a6a00;
+  --syn-attr: #b2434f;
+  --syn-meta: #5b6670;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171b;
+    --surface: #1b1e23;
+    --sidebar-bg: #111317;
+    --text: #e3e5e8;
+    --muted: #9198a1;
+    --border: #2c3036;
+    --accent: #4fc1ad;
+    --accent-soft: #1d3330;
+    --link: #6cb6d4;
+    --code-bg: #22262c;
+    --code-text: #d5d8dc;
+    --ref-bg: #1c2a33;
+    --ref-text: #8ccbe6;
+    --mark: #5a4a12;
+    --kind-overview: #4fc1ad;
+    --kind-component: #7fa2ec;
+    --kind-flow: #e58a63;
+    --kind-concern: #b48ae6;
+    --kind-decision: #d1b257;
+    --kind-glossary: #8fc463;
+    --kind-gotchas: #ec7b8a;
+    --kind-change: #9aa4ae;
+    --kind-topic: #ec8fb2;
+    --note: #7fa2ec;
+    --tip: #4fc1ad;
+    --warning: #e0b04f;
+    --caution: #ec7b8a;
+    --inferred: #d1b257;
+    --insight: #6fd39a;
+    --scrollbar-thumb: #3a3f46;
+    --scrollbar-thumb-hover: #555b64;
+    --code-hl: #3b3417;
+    --syn-keyword: #d197e8;
+    --syn-string: #a5d38a;
+    --syn-comment: #7f8791;
+    --syn-number: #e9a86b;
+    --syn-function: #86b4f5;
+    --syn-type: #e8c66e;
+    --syn-attr: #f08d99;
+    --syn-meta: #9aa4ae;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171b;
+  --surface: #1b1e23;
+  --sidebar-bg: #111317;
+  --text: #e3e5e8;
+  --muted: #9198a1;
+  --border: #2c3036;
+  --accent: #4fc1ad;
+  --accent-soft: #1d3330;
+  --link: #6cb6d4;
+  --code-bg: #22262c;
+  --code-text: #d5d8dc;
+  --ref-bg: #1c2a33;
+  --ref-text: #8ccbe6;
+  --mark: #5a4a12;
+  --kind-overview: #4fc1ad;
+  --kind-component: #7fa2ec;
+  --kind-flow: #e58a63;
+  --kind-concern: #b48ae6;
+  --kind-decision: #d1b257;
+  --kind-glossary: #8fc463;
+  --kind-gotchas: #ec7b8a;
+  --kind-change: #9aa4ae;
+  --kind-topic: #ec8fb2;
+  --note: #7fa2ec;
+  --tip: #4fc1ad;
+  --warning: #e0b04f;
+  --caution: #ec7b8a;
+  --inferred: #d1b257;
+  --insight: #6fd39a;
+  --scrollbar-thumb: #3a3f46;
+  --scrollbar-thumb-hover: #555b64;
+  --code-hl: #3b3417;
+  --syn-keyword: #d197e8;
+  --syn-string: #a5d38a;
+  --syn-comment: #7f8791;
+  --syn-number: #e9a86b;
+  --syn-function: #86b4f5;
+  --syn-type: #e8c66e;
+  --syn-attr: #f08d99;
+  --syn-meta: #9aa4ae;
+}
+
+/* Extra rules from /codedocs style go below this line. */

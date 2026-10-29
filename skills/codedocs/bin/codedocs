@@ -1,0 +1,73 @@
+#!/bin/sh
+# Runs the codedocs binary for this machine. Used by the /codedocs skill (Claude Code runs
+# commands through bash, including Git Bash on Windows).
+#
+# The binaries aren't in git. A local build (build.sh / build.ps1) puts them next to this
+# script; otherwise the first run downloads the one for this machine from the GitHub release
+# matching ../VERSION, checks it against the release's SHA256SUMS, and keeps it here.
+d=$(cd "$(dirname "$0")" && pwd)
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*|Windows_NT) os=windows ;;
+  Darwin) os=darwin ;;
+  Linux) os=linux ;;
+  *) echo "codedocs: unsupported system $(uname -s)" >&2; exit 2 ;;
+esac
+case "$(uname -m)" in
+  x86_64|amd64) arch=amd64 ;;
+  arm64|aarch64) arch=arm64 ;;
+  *) echo "codedocs: unsupported CPU $(uname -m)" >&2; exit 2 ;;
+esac
+if [ "$os" = windows ]; then
+  bin="$d/codedocs.exe"; asset="codedocs-windows-amd64.exe"
+else
+  bin="$d/codedocs-$os-$arch"; asset="codedocs-$os-$arch"
+fi
+
+fetch() { # url dest
+  if command -v curl >/dev/null 2>&1; then curl -fsSL --retry 2 -o "$2" "$1"
+  elif command -v wget >/dev/null 2>&1; then wget -q -O "$2" "$1"
+  else echo "codedocs: need curl or wget to download the binary." >&2; return 1; fi
+}
+
+download() {
+  ver=$(tr -d ' \r\n' < "$d/../VERSION" 2>/dev/null)
+  repo=$(tr -d ' \r\n' < "$d/../REPO" 2>/dev/null)
+  if [ -z "$ver" ] || [ -z "$repo" ]; then
+    echo "codedocs: no binary in $d, and VERSION or REPO is missing so it can't be downloaded." >&2; return 1
+  fi
+  # CODEDOCS_DOWNLOAD_BASE points at a mirror (or a local server when testing).
+  base="${CODEDOCS_DOWNLOAD_BASE:-https://github.com/$repo/releases/download}/v$ver"
+  tmp="$bin.download"
+  echo "codedocs: first run, downloading $asset v$ver from $base ..." >&2
+  if ! fetch "$base/$asset" "$tmp"; then
+    rm -f "$tmp"
+    echo "codedocs: download failed: $base/$asset" >&2
+    echo "  If v$ver was released in the last few minutes, the release may still be building; try again shortly." >&2
+    echo "  Or build it yourself with Go 1.22+: clone https://github.com/$repo and run build.sh (or build.ps1)." >&2
+    return 1
+  fi
+  sums=$(fetch "$base/SHA256SUMS" -) || { rm -f "$tmp"; echo "codedocs: couldn't fetch $base/SHA256SUMS; try again." >&2; return 1; }
+  want=$(printf '%s\n' "$sums" | awk -v a="$asset" '$2 == a || $2 == "*"a { print $1 }')
+  if command -v sha256sum >/dev/null 2>&1; then got=$(sha256sum "$tmp" | awk '{print $1}')
+  elif command -v shasum >/dev/null 2>&1; then got=$(shasum -a 256 "$tmp" | awk '{print $1}')
+  else got="$want"; echo "codedocs: no sha256sum or shasum here; skipping the checksum." >&2; fi
+  if [ -z "$want" ] || [ "$got" != "$want" ]; then
+    rm -f "$tmp"
+    echo "codedocs: checksum mismatch for $asset; not using it." >&2; return 1
+  fi
+  chmod +x "$tmp" 2>/dev/null
+  mv -f "$tmp" "$bin" || { echo "codedocs: can't write $bin" >&2; return 1; }
+  # macOS quarantines downloaded files; this one was fetched by curl, which doesn't set it,
+  # but clear it anyway in case the folder was copied from a quarantined download.
+  [ "$os" = darwin ] && xattr -d com.apple.quarantine "$bin" 2>/dev/null
+  echo "codedocs: installed $bin" >&2
+}
+
+# CODEDOCS_NO_DOWNLOAD=1 (used by build.sh) means: run a local binary or nothing.
+if [ ! -f "$bin" ]; then
+  [ -n "$CODEDOCS_NO_DOWNLOAD" ] && exit 2
+  download || exit 2
+fi
+# Zips and copies can drop the executable bit; restore it.
+[ -x "$bin" ] || chmod +x "$bin" 2>/dev/null || { echo "codedocs: $bin is not executable (chmod +x it)." >&2; exit 2; }
+exec "$bin" "$@"

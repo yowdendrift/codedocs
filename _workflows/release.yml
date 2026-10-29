@@ -1,0 +1,38 @@
+# Push a tag like v0.5.0 (matching skills/codedocs/VERSION) to publish a release. Installed
+# copies of the skill download their binary from it, so it must exist for every version.
+name: release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tool/go.mod
+      - name: Tag, VERSION, plugin.json, CHANGELOG and REPO agree
+        run: scripts/check-versions.sh "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
+      - name: Build
+        run: ./build.sh dist
+      - name: Release notes from the changelog
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v v="$v" '$0 ~ "^## "v"( |$)" {on=1; next} on && /^## / {exit} on' skills/codedocs/CHANGELOG.md > notes.md
+          cat >> notes.md <<NOTES
+
+          ### Install
+          In Claude Code: \`/plugin install codedocs --marketplace ${GITHUB_REPOSITORY}\`
+
+          The binaries below are downloaded automatically on first use; you only need them to
+          install by hand. \`SHA256SUMS\` lists their checksums.
+          NOTES
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "codedocs $GITHUB_REF_NAME" --notes-file notes.md
