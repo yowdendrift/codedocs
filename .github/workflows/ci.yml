@@ -8,20 +8,25 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: tool/go.mod
+          cache: false   # standard library only: no go.sum, nothing to cache
+      - name: Launcher is executable in git (plugin installs on macOS and Linux run it directly)
+        run: |
+          git ls-files -s skills/codedocs/bin/codedocs | grep -q '^100755' || {
+            echo "Not executable. Fix with: git update-index --chmod=+x skills/codedocs/bin/codedocs"; exit 1; }
       - name: Versions agree
-        run: scripts/check-versions.sh
+        run: sh scripts/check-versions.sh
       - name: Vet
         working-directory: tool
         run: go vet ./...
       - name: Build every target
-        run: ./build.sh dist
+        run: sh build.sh dist
       - name: Build for this machine and check the example docs
         run: |
-          ./build.sh
+          sh build.sh
           cd example
           ../skills/codedocs/bin/codedocs manifest
           ../skills/codedocs/bin/codedocs check

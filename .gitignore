@@ -1,5 +1,5 @@
 # Build outputs: build.ps1 / build.sh write these; installed copies download them from Releases.
-skills/codedocs/bin/codedocs.exe
+skills/codedocs/bin/*.exe
 skills/codedocs/bin/codedocs-*
 skills/codedocs/bin/*.download
 dist/
