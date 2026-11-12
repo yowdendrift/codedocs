@@ -20,11 +20,6 @@ patterns that cut across, the decisions behind it and the traps. A small executa
 mechanical: inventory, checking every reference still exists, working out which pages a change
 affects, and serving a viewer where every code reference opens the real file.
 
-> [!INSIGHT]
-> codedocs exists for two problems: knowing that AI-written code is right, and keeping a mental
-> model of a codebase you didn't write yourself. Docs that a person can read top-down, with every
-> claim one click from the code it's about, address both.
-
 ## How it fits together
 
 ```mermaid
