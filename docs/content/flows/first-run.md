@@ -4,7 +4,7 @@ summary: From /plugin install to a running tool: Claude Code copies the repo int
 order: 40
 components: [distribution, skill, cli]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-12
 ---
 # Installing and first run
 
@@ -49,7 +49,7 @@ same instructions work on every platform.
 
 `skills/codedocs/bin/codedocs` maps `uname` to an asset name (`codedocs-darwin-arm64`,
 `codedocs-windows-amd64.exe`…). If that file isn't beside it, it reads `skills/codedocs/VERSION`
-and `skills/codedocs/REPO`, downloads the asset and `SHA256SUMS` from the release `v<VERSION>`,
+and `skills/codedocs/REPO`, and `skills/codedocs/bin/codedocs#download` fetches the asset and `SHA256SUMS` from the release `v<VERSION>`,
 and compares checksums. A mismatch, a missing asset or a failed download stops with a message
 saying what to do. On success it keeps the binary in `bin/` and runs it.
 

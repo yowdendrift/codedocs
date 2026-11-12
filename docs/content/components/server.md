@@ -4,7 +4,7 @@ summary: codedocs serve: a localhost web server for the viewer, the docs and a r
 order: 50
 paths: [tool/serve.go]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-12
 ---
 # Viewer server
 
@@ -12,7 +12,7 @@ updated: 2026-10-29
 
 Serves the [viewer](viewer.md) and the docs folder on `localhost`, and answers the code panel's
 questions: list files, return a file with its import links and owning components, find a
-definition. It's the only part of codedocs that opens a network port, so it's also where most of
+definition, list a symbol's call sites. It's the only part of codedocs that opens a network port, so it's also where most of
 the [security rules](../concerns/security.md) live. It doesn't render anything; the browser
 does.
 
@@ -37,7 +37,7 @@ and how `stop` finds it without killing processes.
   browser accepts it).
 - /manifest.json: built fresh per request.
 - Anything else: a file from the docs folder via `tool/serve.go#serveDocsFile`, confined to it.
-- `/api/info`, `/api/files`, `/api/file`, `/api/definition`: the code panel API.
+- `/api/info`, `/api/files`, `/api/file`, `/api/definition`, `/api/callers`: the code panel API.
 - `/api/shutdown`: stop, if the request carries the token from the state file.
 
 ### The code API
@@ -47,7 +47,9 @@ refreshed every few seconds), is under 2 MB and isn't binary, then returns the t
 normalised, the line a requested symbol is on (via `tool/pages.go#resolveSymbol`), the
 components whose `paths` include it, and its import links from
 [code intelligence](code-intelligence.md). `/api/definition` delegates to
-`tool/defs.go#findDefinition`.
+`tool/defs.go#findDefinition`, whose matches carry the definition's last line as well as its first. The
+flow Code view uses that to expand a call in place. `/api/callers` takes a path and symbol and
+returns `tool/callers.go#findCallers`'s approximate call sites.
 
 ### Running-server records and stop
 

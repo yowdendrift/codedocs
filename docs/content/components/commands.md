@@ -4,7 +4,7 @@ summary: The deterministic commands the skill leans on: inventory, setting up a 
 order: 30
 paths: [tool/cmds.go]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-12
 ---
 # Bookkeeping commands
 
@@ -46,7 +46,9 @@ folder argument it picks `docs/`, or `docs/codebase/` if `docs/` already holds o
 exists, line numbers are in range and `#Symbol`s resolve; each relative link points at a page;
 each `components:` entry names a real component; each component has `paths`. Then it lists code
 files no component's `paths` claim, grouped by folder, and pages written with older page
-guidance (their `generated_with` is below `tool/cmds.go#guidanceVersion`).
+guidance (their `generated_with` is below `tool/cmds.go#guidanceVersion`). It also warns, without
+failing, about flow steps that name no function (`tool/cmds.go#flowStepGaps`). A step with no
+ref, or one that refs only a long code file, leaves a gap in the flow's Code view.
 
 ### affected
 

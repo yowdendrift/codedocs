@@ -4,7 +4,7 @@ summary: The single-page web app people read the docs in: navigation, markdown w
 order: 70
 paths: [tool/assets/**, tool/vendor.sh]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-12
 ---
 # Viewer
 
@@ -21,8 +21,8 @@ the same to it, apart from where code comes from.
 function with no build step, no framework and no bundler. It's embedded into the binary at build
 time. Libraries load on demand from `lib/` with a CDN fallback (`LIBS`): marked for markdown,
 Mermaid for diagrams, D3 and markmap for the map, highlight.js for code. Routing is the URL hash
-(`#/components/server`, `#/map`, `#/search/…`), so any view can be linked to and the back button
-works.
+(`#/components/server`, `#/map`, `#/search/…`, `#/as-code/flows/…`), so any view can be linked
+to and the back button works.
 
 Looks are split in two. `tool/assets/viewer.css` is layout and is replaced on upgrade;
 `tool/assets/theme.css` is the default set of CSS variables (fonts, colours, the colour of each
@@ -62,13 +62,29 @@ and shows which component owns the file and which pages mention it. Ctrl/Cmd+cli
 calls `tool/assets/index.html#goToDefinition`. A small history stack makes the panel's back
 button work across files, file lists and definition choices.
 
+### Flows as code
+
+Flow pages get a Prose / Code toggle. The Code view (`tool/assets/index.html#showSlice`) takes
+the steps from the page's markdown (`tool/assets/index.html#flowSteps`: the `###` headings under
+"Step by step") and, under each step's text, shows the body of every function the step names.
+The lines to show come from the manifest's `spans` (`tool/assets/index.html#refRange`); a
+whole-file ref shows the first 40 lines with a button for the rest. Each block is filled by
+`tool/assets/index.html#fillBlock`. It also gets an "Also in" list of other pages that name the
+same symbol (`tool/assets/index.html#alsoIn`, from each page's `syms`) and an "≈N calls" button
+that lists the call sites from `Code.callers`. `tool/assets/index.html#markCalls` underlines
+anything that looks like a call. Clicking one runs `tool/assets/index.html#expandCall`, which
+looks up the definition and inserts the callee's body under that line, so a reader can follow
+the code down without leaving the page. Several matches, or a body over 400 lines, open in the
+code panel instead.
+
 ### Where code comes from
 
 `tool/assets/index.html#Code` hides the difference between serving and a static export. With the
-server it calls `/api/file`, `/api/files` and `/api/definition`. In an export (the manifest says
-`static`), it reads code/index.json, fetches source from GitHub, filters file lists with its
-own `tool/assets/index.html#globRe`, and ranks definitions from code/defs.json the way the server
-would. "Open in editor" becomes "View on GitHub".
+server it calls `/api/file`, `/api/files`, `/api/definition` and `/api/callers`. In an export
+(the manifest says `static`), it reads code/index.json, fetches source from GitHub, filters file
+lists with its own `tool/assets/index.html#globRe`, ranks definitions from code/defs.json the way
+the server would, and reads call sites from code/callers.json. "Open in editor" becomes "View on
+GitHub".
 
 ### Libraries
 
@@ -87,5 +103,10 @@ either the server's `/api/*` or an export's `code/`. Writes nothing except a the
 - Never edit index.html or viewer.css in a repo's docs folder: `serve` ignores them and
   `/codedocs upgrade` replaces them. Change `tool/assets/` and rebuild.
 - Opened as a `file://` page, the viewer can't fetch anything and says so. It must be served.
+- `tool/assets/index.html#flowSteps` and `tool/cmds.go#flowStepGaps` (behind `check`'s
+  `step-without-symbol` warning) both decide what counts as a step. Change one, change both, or
+  `check` will warn about steps the Code view doesn't show, or miss gaps it does.
+- In an export, call counts exist only for symbols the docs name: code/callers.json is
+  precomputed for those, so a function opened by expanding a call gets no count.
 - Every function lives inside one closure, so nothing is reachable from the browser console.
   Debugging means temporarily exposing what you need.

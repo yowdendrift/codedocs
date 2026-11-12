@@ -4,7 +4,7 @@ summary: Reads the docs folder (config, pages, frontmatter, code refs, links) an
 order: 20
 paths: [tool/pages.go]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-12
 ---
 # Docs model
 
@@ -57,6 +57,9 @@ without a parser. For each dotted part it tries, from the previous part's line o
 (`X = function`, `X(…) {`), then the first plain mention. Lines like `import X` never count as
 definitions. It's language-agnostic and usually right; see
 [the decision](../decisions/0002-regex-code-intelligence.md) for the trade-off.
+`tool/pages.go#locateSymbol` does the work. It also reports whether the last part matched as a
+definition or only as a mention, which [code intelligence](code-intelligence.md) needs before it
+can say where the definition ends.
 
 ### The manifest
 
@@ -64,7 +67,10 @@ definitions. It's language-agnostic and usually right; see
 page, sorted by kind, `order` and title, with the refs it mentions and its headings. It also
 computes the reverse links (which flows, concerns, decisions and topics involve each component),
 so pages only ever declare links in one direction. Every `file#Symbol` ref is resolved to a line
-here, so the viewer can link straight to the right line without asking the server.
+here (`symbols`), so the viewer can link straight to the right line without asking the server.
+Each entry also lists its symbol refs in page order (`syms`). The manifest's `spans` holds the
+first and last line of every named symbol, and of the block each `file:N` ref starts. The
+viewer's Code view of a flow reads both, and so do export's call sites.
 
 ## Interfaces
 

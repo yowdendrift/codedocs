@@ -2,7 +2,7 @@
 title: Gotchas
 summary: Traps in this codebase that cost time the first time you hit them.
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-12
 ---
 # Gotchas
 
@@ -32,7 +32,9 @@ docs folder's config and compares as older than everything.
 
 Static exports can't call the server, so `tool/assets/index.html#globRe` mirrors
 `tool/util.go#globRe`, and the definition ranking in `tool/assets/index.html#Code` mirrors
-`tool/defs.go#findDefinition`. Change one, change both.
+`tool/defs.go#findDefinition`. Change one, change both. The same goes for how a flow's steps are
+found: `tool/assets/index.html#flowSteps` (the Code view) and `tool/cmds.go#flowStepGaps` (the
+`check` warning).
 
 ## `${CLAUDE_SKILL_DIR}` only works in SKILL.md
 
