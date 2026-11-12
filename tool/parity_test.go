@@ -54,6 +54,8 @@ func parityDefCases() []defCase {
 	return []defCase{
 		{Name: "Thing", All: spread, From: "src/ui/a.ts",
 			Imports: map[string]resolvedImport{"Thing": {Path: "src/render/q.ts", Line: 12}}},
+		{Name: "Thing", All: spread, From: "src/ui/a.ts",
+			Imports: map[string]resolvedImport{"Thing": {Path: "src/render/q.ts", Line: 12, End: 30}}},
 		{Name: "Run", All: spread, From: "cmd/main.go",
 			Imports: map[string]resolvedImport{"Run": {Path: "src/render", Dir: true}}},
 		{Name: "Run", All: spread, From: "cmd/main.go",

@@ -2,15 +2,17 @@
 title: Glossary
 summary: The words this project uses, and what each one means here.
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-12
 ---
 # Glossary
 
 | Term | Meaning | Where |
 |---|---|---|
 | Affected | The pages a code change might make wrong, worked out from git and component paths. | `tool/cmds.go#cmdAffected` |
+| Callers | The lines that seem to call a symbol: a name match in the files that can see it, so shown as ≈N. | `tool/callers.go#findCallers` |
 | Code panel | The pane beside a page that shows source files, with import links and go-to-definition. | `tool/assets/index.html#showCode` |
 | Code ref | Inline code in a page that names a repo file, optionally with a line, range or symbol. | `tool/pages.go#extractRefs` |
+| Code view | A flow read as code: each step's text followed by the functions it names, with calls that expand in place. | `tool/assets/index.html#showSlice` |
 | Component | A major part of the codebase, owning the files its `paths` globs match. | `skills/codedocs/reference/content-model.md` |
 | Concern | A pattern that cuts across several components, such as errors or versioning. | `skills/codedocs/reference/content-model.md` |
 | Content model | The contract for docs folders: folders, frontmatter, ref and link formats, templates. | `skills/codedocs/reference/content-model.md` |
@@ -27,5 +29,6 @@ updated: 2026-10-29
 | Locked | A page humans own; the agent never rewrites it. | `skills/codedocs/SKILL.md` |
 | Manifest | manifest.json: the index of pages, links and resolved symbols the viewer runs on. | `tool/pages.go#buildManifest` |
 | Repo context | The file set and per-ecosystem resolution rules imports are resolved against. | `tool/links.go#repoCtx` |
+| Span | The first and last line of a definition (with its doc comment), stored in the manifest's `spans`. | `tool/spans.go#symbolSpan` |
 | Skill | The markdown instructions the agent follows for each `/codedocs` command. | `skills/codedocs/SKILL.md` |
 | Topic | A page for one subject that spans the structure, written for admins, developers or both. | `skills/codedocs/reference/add.md` |

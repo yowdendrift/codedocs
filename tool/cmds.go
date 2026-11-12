@@ -319,7 +319,7 @@ func cmdCheck(o options) {
 	docsDir := findDocsDir(o, true)
 	cfg := loadConfig(docsDir)
 	pages := loadPages(docsDir)
-	issues := []Issue{}
+	issues, warnings := []Issue{}, []Issue{}
 	addBody := func(p *Page, docLine int, typ, detail string) {
 		issues = append(issues, Issue{"content/" + p.File, docLine + p.Offset, typ, detail})
 	}
@@ -369,6 +369,11 @@ func cmdCheck(o options) {
 		if p.Kind == "component" && len(p.list("paths")) == 0 {
 			addMeta(p, "component-without-paths", p.ID)
 		}
+		if p.Kind == "flow" {
+			for _, g := range flowStepGaps(p.Body) {
+				warnings = append(warnings, Issue{"content/" + p.File, g.DocLine + p.Offset, "step-without-symbol", g.Detail})
+			}
+		}
 	}
 	var compGlobs []string
 	for _, p := range pages {
@@ -413,7 +418,7 @@ func cmdCheck(o options) {
 			sample = sample[:50]
 		}
 		printJSON(map[string]any{
-			"ok": len(issues) == 0, "issues": issues, "outdated": outdated,
+			"ok": len(issues) == 0, "issues": issues, "warnings": warnings, "outdated": outdated,
 			"uncovered": map[string]any{"count": len(uncovered), "total": len(codeFiles), "byDir": byDir, "files": sample},
 		})
 	} else {
@@ -424,6 +429,12 @@ func cmdCheck(o options) {
 		}
 		for _, i := range issues {
 			fmt.Printf("- %s:%d  %s  %s\n", i.Page, i.Line, i.Type, i.Detail)
+		}
+		if len(warnings) > 0 {
+			fmt.Printf("\n%d flow step(s) name no function, so the flow's code view has a gap there:\n", len(warnings))
+			for _, i := range warnings {
+				fmt.Printf("- %s:%d  %s\n", i.Page, i.Line, i.Detail)
+			}
 		}
 		if len(uncovered) > 0 {
 			fmt.Printf("\nCoverage: %d of %d code files are not claimed by any component's paths:\n", len(uncovered), len(codeFiles))
@@ -443,6 +454,76 @@ func cmdCheck(o options) {
 	if len(issues) > 0 {
 		os.Exit(1)
 	}
+}
+
+// stepGap is a flow step whose code view would be empty or a whole file.
+type stepGap struct {
+	DocLine int
+	Detail  string
+}
+
+var reStepsH2 = regexp.MustCompile(`(?i)\bsteps?\b`)
+
+// wholeFileLines: the code view shows a whole-file ref in full up to about this length
+// (FILE_PREVIEW + 10 in the viewer).
+const wholeFileLines = 50
+
+// flowStepGaps finds steps (### under "## Step by step", else every ###) that don't name a
+// symbol or line: the flow's "read as code" view can only show what the steps point at.
+// Mirrors flowSteps in the viewer.
+func flowStepGaps(body string) []stepGap {
+	ls := strings.Split(stripCode(body), "\n")
+	h := func(l string) []string { return reHeading.FindStringSubmatch(strings.TrimRight(l, "\r")) }
+	hasSection := false
+	for _, l := range ls {
+		if m := h(l); m != nil && len(m[1]) == 2 && reStepsH2.MatchString(m[2]) {
+			hasSection = true
+		}
+	}
+	byLine := map[int][]Ref{}
+	for _, r := range extractRefs(body) {
+		byLine[r.DocLine] = append(byLine[r.DocLine], r)
+	}
+	type step struct {
+		title      string
+		line       int
+		refs, syms int
+	}
+	var steps []*step
+	var cur *step
+	inSteps := !hasSection
+	for i, l := range ls {
+		if m := h(l); m != nil {
+			if len(m[1]) == 2 {
+				inSteps, cur = !hasSection || reStepsH2.MatchString(m[2]), nil
+			} else if inSteps {
+				cur = &step{title: reMarkup.ReplaceAllString(m[2], ""), line: i + 1}
+				steps = append(steps, cur)
+			}
+			continue
+		}
+		if cur == nil {
+			continue
+		}
+		for _, r := range byLine[i+1] {
+			cur.refs++
+			// A whole file is fine when it isn't code (a guide, a workflow) or is short enough
+			// for the code view to show in full.
+			if r.Symbol != "" || r.Line > 0 || !codeExt[extOf(r.File)] || lineCount(r.File) <= wholeFileLines {
+				cur.syms++
+			}
+		}
+	}
+	var out []stepGap
+	for _, st := range steps {
+		switch {
+		case st.refs == 0:
+			out = append(out, stepGap{st.line, fmt.Sprintf("%q has no code ref", st.title)})
+		case st.syms == 0:
+			out = append(out, stepGap{st.line, fmt.Sprintf("%q only refs whole files; name the function (file#Symbol)", st.title)})
+		}
+	}
+	return out
 }
 
 // ---------- affected ----------

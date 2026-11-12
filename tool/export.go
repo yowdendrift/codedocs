@@ -7,6 +7,7 @@ package main
 //   manifest.json, content/                   the docs (machine-specific paths removed)
 //   code/index.json                           where the source lives, and the file list
 //   code/defs.json                            name -> definitions, for Ctrl+click (loaded on demand)
+//   code/callers.json                         "file#Symbol" -> approximate call sites, for symbols the docs name
 //   code/meta/<path>.json                     per file: its import links and where imported names live
 //
 // The source itself isn't copied. The viewer fetches each file from code/index.json's
@@ -138,20 +139,40 @@ func cmdExport(o options) {
 	}
 	sort.Strings(files)
 
-	// Definitions by name, for Ctrl+click. Stored as name -> [[file index, line], …] to keep it small.
+	// Definitions by name, for Ctrl+click and expanding a call in the flow code view. Stored as
+	// name -> [[file index, line, end line], …] to keep it small.
 	idx := map[string]int{}
 	for i, f := range files {
 		idx[f] = i
 	}
-	compact := map[string][][2]int{}
+	compact := map[string][][3]int{}
 	for name, ds := range defs.get(files) {
 		for _, d := range ds {
 			if i, ok := idx[d.File]; ok {
-				compact[name] = append(compact[name], [2]int{i, d.Line})
+				compact[name] = append(compact[name], [3]int{i, d.Line, d.End})
 			}
 		}
 	}
 	write("code/defs.json", compactJSON(compact))
+
+	// Call sites of every symbol the docs name: "file#Symbol" -> [[file index, line], …].
+	callers := map[string][][2]int{}
+	for _, e := range m.Pages {
+		for _, key := range e.Syms {
+			file, sym, _ := strings.Cut(key, "#")
+			if _, done := callers[key]; done || !ctx.set[file] {
+				continue
+			}
+			list := [][2]int{}
+			for _, d := range findCallers(ctx, file, sym) {
+				if i, ok := idx[d.File]; ok {
+					list = append(list, [2]int{i, d.Line})
+				}
+			}
+			callers[key] = list
+		}
+	}
+	write("code/callers.json", compactJSON(callers))
 
 	var metas []int
 	for i, f := range files {

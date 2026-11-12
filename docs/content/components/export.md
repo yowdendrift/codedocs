@@ -4,7 +4,7 @@ summary: codedocs export: writes the docs as a static site any web host can serv
 order: 60
 paths: [tool/export.go]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-12
 ---
 # Static export
 
@@ -25,6 +25,7 @@ index.html, viewer.css, theme.css, lib/   the viewer and its libraries
 manifest.json, content/                   the docs ("static": true, no machine paths)
 code/index.json                           source URL, web URL, commit, file list
 code/defs.json                            name -> definitions, loaded on first Ctrl+click
+code/callers.json                         "file#Symbol" -> call sites, for symbols the docs name
 code/meta/<path>.json                     per file: import links, where imported names live
 ```
 
@@ -50,8 +51,12 @@ then writes the embedded viewer and libraries, the theme, `content/` and a manif
 `repo_root_abs` blanked, `editor` set to `none` and `static` set. For the code panel it takes
 the same file set as the server, minus the docs folder, files over 2 MB and binary files, and
 writes `tool/export.go#codeIndex`. Definitions are stored compactly as
-`name -> [[file index, line], …]`. Per-file `tool/export.go#codeMeta` holds the links from
-`tool/links.go#linksFor`, imports resolved to a line by `tool/defs.go#resolveImports` (the same code the server uses), and the
+`name -> [[file index, line, end line], …]`; the end line lets the flow Code view expand a call
+in place. Call sites are worked out only for the `file#Symbol` refs the pages make (each
+manifest entry's `syms`), with `tool/callers.go#findCallers`, so code/callers.json stays small
+(a full call graph would not, inferred). Per-file `tool/export.go#codeMeta` holds the links from
+`tool/links.go#linksFor`, imports resolved to a line and its definition's extent by
+`tool/defs.go#resolveImports` (the same code the server uses), and the
 lines of symbols those links point at, so following an import lands on the right line without a
 server. Files with nothing to say get no meta file; code/index.json lists the ones that do, so
 the viewer never requests a missing file.

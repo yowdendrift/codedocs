@@ -20,6 +20,9 @@ on what it flags.
    - `unknown-component`: a `components:` entry that matches no component slug. Fix the slug.
    - `component-without-paths`: add `paths` globs.
    Don't re-read whole files: look only at the spots involved.
+   **Warnings** (`step-without-symbol`) don't fail the check: a flow step names no function, or
+   only a long code file, so the flow's Code view has a gap there. Where the step clearly maps to
+   a function, add its `file#Symbol` ref; otherwise mention the gaps and leave them.
 4. **Coverage:** list uncovered directories for the user, with your suggestion for each: extend a
    component's `paths`, add an `ignore` glob (generated or vendored code), or document a new area
    (suggest `/codedocs update` or a new component page; don't write it unasked).

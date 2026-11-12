@@ -154,11 +154,11 @@
   }
   const matchAny = (f, globs) => globs.some(g => globRe(g).test(f));
   // Where name, used in file from, is defined. all: [{file, line}] in index order; imports:
-  // name -> {path, line, dir}; links: the file's import links.
+  // name -> {path, line, end, dir}; links: the file's import links.
   function rankDefinitions(name, all, from, imports, links) {
     const imp = imports?.[name];
     if (imp && imp.dir) { const inside = all.filter(d => dirOf(d.file) === imp.path); if (inside.length) return inside; }
-    else if (imp) return [{ file: imp.path, line: imp.line || 0, kind: 'import' }];
+    else if (imp) return [{ file: imp.path, line: imp.line || 0, end: imp.end, kind: 'import' }];
     const local = all.find(d => d.file === from);
     if (local) return [local];
     const near = {};
@@ -175,7 +175,7 @@
     return d;
   }
   const metaCache = new Map(), SYMS = {};
-  let defsData = null;
+  let defsData = null, callersData = null;
   function fileMeta(f) {
     if (!STATIC.hasMeta.has(f)) return Promise.resolve({});
     if (!metaCache.has(f)) metaCache.set(f, fetch('code/meta/' + encPath(f) + '.json').then(r => r.ok ? r.json() : {}).catch(() => ({})).then(m => { Object.assign(SYMS, m.syms || {}); return m; }));
@@ -207,9 +207,16 @@
     async definition(name, from) {
       if (!STATIC) return (await getJSON(`api/definition?name=${encodeURIComponent(name)}&from=${encodeURIComponent(from)}`)).matches || [];
       defsData ||= getJSON('code/defs.json');
-      const all = ((await defsData)[name] || []).map(([i, line]) => ({ file: STATIC.files[i], line }));
+      const all = ((await defsData)[name] || []).map(([i, line, end]) => ({ file: STATIC.files[i], line, end }));
       const meta = from ? await fileMeta(from) : {};
       return rankDefinitions(name, all, from, meta.imports, meta.links);
+    },
+    // Approximate call sites of a symbol (a name match in the files that can see it). null = unknown.
+    async callers(file, symbol) {
+      if (!STATIC) return (await getJSON(`api/callers?path=${encodeURIComponent(file)}&symbol=${encodeURIComponent(symbol)}`)).callers || [];
+      callersData ||= getJSON('code/callers.json').catch(() => ({}));
+      const list = (await callersData)[`${file}#${symbol}`];
+      return list ? list.map(([i, line]) => ({ file: STATIC.files[i], line })) : null;
     },
   };
   const sourceName = () => STATIC?.repo ? 'GitHub' : 'the source host';
@@ -348,31 +355,36 @@
   }
 
   // ---- code links: the server's language packs resolve imports; we make them clickable. ----
-  // Wrap the nth occurrence of each link's text on its line. The text can span several
+  // Wrap the nth occurrence of text in a highlighted row. The text can span several
   // highlight spans (e.g. PHP namespaces), so each text-node piece gets its own wrapper.
+  function wrapText(row, text, nth, cls, make) {
+    const nodes = [], walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+    let full = '', n;
+    while ((n = walker.nextNode())) { nodes.push({ n, at: full.length }); full += n.nodeValue; }
+    let idx = -1, from = 0;
+    for (let k = 0; k <= nth; k++) { idx = full.indexOf(text, from); if (idx < 0) break; from = idx + text.length; }
+    if (idx < 0) return;
+    const end = idx + text.length;
+    for (const { n: node, at } of nodes) {
+      const len = node.nodeValue.length; // read before splitting: splitText shortens node
+      const a = Math.max(idx, at), b = Math.min(end, at + len);
+      if (a >= b || node.parentElement.closest('.' + cls)) continue;
+      let piece = node;
+      if (a > at) piece = piece.splitText(a - at);
+      if (b - a < piece.nodeValue.length) piece.splitText(b - a);
+      const w = document.createElement('span');
+      w.className = cls; make(w);
+      piece.replaceWith(w); w.append(piece);
+    }
+  }
   function applyLinks(links) {
     for (const l of links || []) {
       const row = document.querySelector(`#code-L${l.line} .cc`);
       if (!row) continue;
-      const nodes = [], walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
-      let full = '', n;
-      while ((n = walker.nextNode())) { nodes.push({ n, at: full.length }); full += n.nodeValue; }
-      let idx = -1, from = 0;
-      for (let k = 0; k <= l.nth; k++) { idx = full.indexOf(l.text, from); if (idx < 0) break; from = idx + l.text.length; }
-      if (idx < 0) continue;
-      const end = idx + l.text.length;
-      for (const { n: node, at } of nodes) {
-        const len = node.nodeValue.length; // read before splitting: splitText shortens node
-        const a = Math.max(idx, at), b = Math.min(end, at + len);
-        if (a >= b || node.parentElement.closest('.imp')) continue;
-        let piece = node;
-        if (a > at) piece = piece.splitText(a - at);
-        if (b - a < piece.nodeValue.length) piece.splitText(b - a);
-        const w = document.createElement('span');
-        w.className = 'imp'; w.dataset.path = l.path; if (l.symbol) w.dataset.symbol = l.symbol; if (l.dir) w.dataset.dir = '1';
+      wrapText(row, l.text, l.nth, 'imp', w => {
+        w.dataset.path = l.path; if (l.symbol) w.dataset.symbol = l.symbol; if (l.dir) w.dataset.dir = '1';
         w.title = l.dir ? `Show the ${l.path} package` : `Open ${l.path}${l.symbol ? ' at ' + l.symbol : ''}`;
-        piece.replaceWith(w); w.append(piece);
-      }
+      });
     }
   }
   function followLink(el) {
@@ -404,13 +416,13 @@
       else showMatches(name, ms);
     } catch (e) { toast(`Couldn't look up ${name}: ${e.message}`); }
   }
-  function showMatches(name, matches, scroll) {
+  function showMatches(name, matches, scroll, label) {
     openPanel();
-    codeState = { matches, name };
+    codeState = { matches, name, label };
     updateBack();
     $('#codeEditor').hidden = true;
     $('#codePath').innerHTML = `<strong>${esc(name)}</strong>`;
-    $('#codeMeta').innerHTML = `<div class="muted">${matches.length} possible definitions${matches.length >= 40 ? ' (first 40)' : ''}. Pick one.</div>`;
+    $('#codeMeta').innerHTML = `<div class="muted">${label ? esc(label) : `${matches.length} possible definitions${matches.length >= 40 ? ' (first 40)' : ''}. Pick one.`}</div>`;
     $('#codeBody').innerHTML = `<ul class="file-list">${matches.map(m => `<li><a href="#" data-open="${esc(m.file)}" data-line="${m.line}"><code>${esc(m.file)}<span class="muted">:${m.line}</span></code></a></li>`).join('')}</ul>`;
     if (scroll != null) $('#codeBody').scrollTop = scroll;
   }
@@ -536,7 +548,7 @@
     const prev = codeHistory.pop();
     if (!prev) return;
     if (prev.list) showFileList(prev.list, prev.title, prev.scroll);
-    else if (prev.matches) showMatches(prev.name, prev.matches, prev.scroll);
+    else if (prev.matches) showMatches(prev.name, prev.matches, prev.scroll, prev.label);
     else showCode(prev.file, prev.line, prev.end, '', prev.scroll);
   };
   $('#codeBody').addEventListener('click', e => {
@@ -742,6 +754,214 @@
     } catch { el.innerHTML = treeHtml(p.paths, false); }
   }
 
+  // ---------- flow as code ----------
+  // A flow's steps with the code each one names, in step order: one top-to-bottom read across
+  // every file the flow touches. The steps and refs come from the flow page itself; the extent
+  // of each symbol from the manifest's spans (worked out by the tool).
+  const rowsCache = new Map(); // file -> Promise<{ rows: highlighted lines, raw: plain lines }>
+  function fileRows(file) {
+    if (!rowsCache.has(file)) {
+      const p = Code.file(file).then(async d => ({ rows: splitHtmlLines(await highlight(d.text, langFor(file))), raw: d.text.split('\n') }));
+      p.catch(() => rowsCache.delete(file));
+      rowsCache.set(file, p);
+    }
+    return rowsCache.get(file);
+  }
+  const isRef = m => m && (m[1].includes('/') || m[2] || m[4]);
+  const unescHtml = t => t.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  function refsIn(tokens) {
+    const out = [], seen = new Set();
+    const walk = ts => {
+      for (const t of ts || []) {
+        if (t.type === 'code') continue;
+        if (t.type === 'codespan') {
+          const raw = unescHtml(t.text), m = raw.match(REF);
+          if (isRef(m) && !seen.has(raw)) { seen.add(raw); out.push({ raw, file: m[1], line: +m[2] || 0, end: +m[3] || 0, symbol: m[4] || '' }); }
+        }
+        walk(t.tokens);
+        if (t.items) walk(t.items);
+      }
+    };
+    walk(tokens);
+    return out;
+  }
+  // The steps: the ### headings under "## Step by step" (else every ### heading).
+  function flowSteps(md) {
+    const tokens = marked.lexer(md);
+    const isStepsH2 = t => t.type === 'heading' && t.depth === 2 && /\bsteps?\b/i.test(t.text);
+    const hasSection = tokens.some(isStepsH2);
+    const steps = [];
+    let inSteps = !hasSection, cur = null;
+    for (const t of tokens) {
+      if (t.type === 'heading' && t.depth <= 2) { cur = null; inSteps = hasSection ? isStepsH2(t) : true; continue; }
+      if (!inSteps) continue;
+      if (t.type === 'heading' && t.depth === 3) { cur = { title: t.text, tokens: [] }; steps.push(cur); continue; }
+      if (cur) cur.tokens.push(t);
+    }
+    for (const st of steps) { st.tokens.links = tokens.links; st.refs = refsIn(st.tokens); }
+    return steps;
+  }
+  // Which lines of the file a ref covers.
+  function refRange(r) {
+    if (r.symbol) {
+      const sp = M.spans?.[`${r.file}#${r.symbol}`];
+      if (sp) return { from: sp[0], to: sp[1] };
+      return { missing: true, line: M.symbols[`${r.file}#${r.symbol}`] || 0 };
+    }
+    if (r.line && r.end) return { from: r.line, to: r.end };
+    if (r.line) { const sp = M.spans?.[`${r.file}:${r.line}`]; return { from: r.line, to: sp ? sp[1] : r.line }; }
+    return { whole: true };
+  }
+  const CALL_SKIP = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'function', 'typeof', 'super', 'elif', 'func', 'def', 'fn', 'match', 'when', 'sizeof', 'require', 'import', 'await', 'async', 'with', 'constructor']);
+  const FILE_PREVIEW = 40; // a file-only ref shows this many lines until expanded
+  function codeRowsHtml(rows, from, to) {
+    let html = '';
+    for (let n = from; n <= to; n++) html += `<div class="cl" data-n="${n}"><span class="cn">${n}</span><span class="cc">${rows[n - 1] || ' '}</span></div>`;
+    return html;
+  }
+  // Mark calls (a name followed by "(") so they can be expanded in place. self: the block's own
+  // name, which isn't a call on its definition line.
+  function markCalls(box, raw, self) {
+    for (const el of box.querySelectorAll(':scope > .cl:not([data-calls])')) {
+      el.dataset.calls = '1';
+      const line = raw[+el.dataset.n - 1] || '', seen = new Set();
+      for (const m of line.matchAll(/([A-Za-z_$][\w$]*)\s*(?:<[^<>()]*>)?\(/g)) {
+        const name = m[1], at = m.index + m[0].indexOf(name);
+        if (CALL_SKIP.has(name) || name.length < 2 || name === self) continue;
+        const nth = line.slice(0, at).split(name).length - 1;
+        if (seen.has(name + '#' + nth)) continue;
+        seen.add(name + '#' + nth);
+        wrapText(el.querySelector('.cc'), name, nth, 'call', w => { w.dataset.name = name; w.title = `Show ${name} here`; });
+      }
+    }
+  }
+  // Exact usage: other pages that name the same symbol (flows first).
+  function alsoIn(key, pageId) {
+    const others = M.pages.filter(q => q.id !== pageId && (q.syms || []).includes(key))
+      .sort((a, b) => (a.kind === 'flow' ? 0 : 1) - (b.kind === 'flow' ? 0 : 1));
+    if (!others.length) return '';
+    const shown = others.slice(0, 3).map(q => `<a href="#/${q.kind === 'flow' && API ? 'as-code/' : ''}${esc(q.id)}"><span class="dot" style="${kindVar(q.kind)}"></span>${esc(q.title)}</a>`);
+    return `<span class="slice-also"><span class="muted">Also in</span> ${shown.join(' ')}${others.length > 3 ? ` <span class="muted">+${others.length - 3}</span>` : ''}</span>`;
+  }
+  function blockShell(r, pageId) {
+    const key = r.symbol ? `${r.file}#${r.symbol}` : '';
+    const ref = refHtml(r.raw) || `<code>${esc(r.raw)}</code>`;
+    return `<div class="slice-block">
+      <div class="slice-head"><span class="slice-ref">${ref}</span><span class="slice-lines muted"></span>${key ? alsoIn(key, pageId) : ''}${key ? '<button class="slice-callers" hidden></button>' : ''}</div>
+      <div class="code hljs slice-code" data-file="${esc(r.file)}"><p class="empty pad">Loading…</p></div></div>`;
+  }
+  async function fillBlock(el, r) {
+    const box = el.querySelector('.slice-code'), info = el.querySelector('.slice-lines');
+    let data;
+    try { data = await fileRows(r.file); } catch (e) { box.innerHTML = `<p class="notice pad">${esc(e.message)}</p>`; return; }
+    const rg = refRange(r);
+    if (rg.missing) {
+      box.innerHTML = `<p class="notice pad"><em>${esc(r.symbol)}</em> isn't defined in a way codedocs recognises${rg.line ? ` (first mention: line ${rg.line})` : ''}, so there's no body to show. Click the ref to open the file.</p>`;
+      return;
+    }
+    let { from, to } = rg, more = 0;
+    if (rg.whole) { from = 1; to = data.raw.length; if (to > FILE_PREVIEW + 10) { more = to - FILE_PREVIEW; to = FILE_PREVIEW; } }
+    to = Math.min(to, data.raw.length);
+    info.textContent = rg.whole ? `whole file, ${data.raw.length} lines` : from === to ? `line ${from}` : `lines ${from}–${to}`;
+    box.innerHTML = codeRowsHtml(data.rows, from, to) + (more ? `<button class="slice-more" data-from="${to + 1}" data-to="${to + more}">Show the other ${more} lines</button>` : '');
+    markCalls(box, data.raw, r.symbol.split('.').pop());
+    const btn = el.querySelector('.slice-callers');
+    if (btn) Code.callers(r.file, r.symbol).then(list => {
+      if (!list || !el.isConnected) return;
+      const files = new Set(list.map(c => c.file)).size, name = r.symbol.split('.').pop();
+      btn.hidden = false;
+      btn.textContent = list.length ? `≈${list.length}${list.length >= 200 ? '+' : ''} call${list.length === 1 ? '' : 's'}${files > 1 ? ` in ${files} files` : ''}` : 'no calls found';
+      btn.title = 'Approximate: lines that call this name in the files that can see it (its own file and the files that import it). Click to list them.';
+      btn.disabled = !list.length;
+      btn.onclick = () => { codeHistory.length = 0; showMatches(name, list, null, `≈${list.length} call site${list.length === 1 ? '' : 's'} of ${name}. A name match, so check each one.`); };
+    }).catch(() => {});
+  }
+  // Expand a call in place: the callee's body appears under the line; a second click folds it.
+  async function expandCall(el) {
+    const row = el.closest('.cl'), box = el.closest('.slice-code'), name = el.dataset.name;
+    const open = [...box.querySelectorAll(`:scope > .slice-inline[data-after="${row.dataset.n}"]`)];
+    const same = open.find(x => x.dataset.name === name);
+    open.forEach(x => x.remove());
+    row.querySelectorAll('.call.open').forEach(c => c.classList.remove('open'));
+    if (same) return;
+    let ms;
+    try { ms = await Code.definition(name, box.dataset.file); } catch (e) { return toast(`Couldn't look up ${name}: ${e.message}`); }
+    if (!ms.length) return toast(`No definition found for ${name} (it may come from a library)`);
+    if (ms.length > 1) { codeHistory.length = 0; showMatches(name, ms); return; }
+    const d = ms[0];
+    if (!d.end || d.end - d.line > 400) { codeHistory.length = 0; showCode(d.file, d.line, 0, ''); return; }
+    let data;
+    try { data = await fileRows(d.file); } catch (e) { return toast(e.message); }
+    const inl = document.createElement('div');
+    inl.className = 'slice-inline'; inl.dataset.name = name; inl.dataset.after = row.dataset.n;
+    const label = `${d.file}:${d.line}${d.end > d.line ? '-' + d.end : ''}`;
+    inl.innerHTML = `<div class="slice-head"><span class="slice-ref">${refHtml(label) || esc(label)}</span><span class="muted">${esc(name)}${d.file === box.dataset.file ? ', same file' : ''}</span><button class="icon-btn slice-fold" title="Fold" aria-label="Fold">&#8722;</button></div>
+      <div class="code hljs slice-code" data-file="${esc(d.file)}">${codeRowsHtml(data.rows, d.line, d.end)}</div>`;
+    row.after(inl);
+    el.classList.add('open');
+    markCalls(inl.querySelector('.slice-code'), data.raw, name);
+  }
+  document.addEventListener('click', async e => {
+    const call = e.target.closest('.slice-code .call');
+    if (call && !e.ctrlKey && !e.metaKey) { e.preventDefault(); expandCall(call); return; }
+    if ((e.ctrlKey || e.metaKey) && e.target.closest('.slice-code .cc')) {
+      const box = e.target.closest('.slice-code'), w = wordAt(e.clientX, e.clientY);
+      if (!w) return;
+      e.preventDefault();
+      Code.definition(w, box.dataset.file).then(ms => {
+        if (!ms.length) return toast(`No definition found for ${w}`);
+        codeHistory.length = 0;
+        if (ms.length === 1) showCode(ms[0].file, ms[0].line, 0, ''); else showMatches(w, ms);
+      }, err => toast(`Couldn't look up ${w}: ${err.message}`));
+      return;
+    }
+    const fold = e.target.closest('.slice-fold');
+    if (fold) {
+      const inl = fold.closest('.slice-inline');
+      inl.parentElement.querySelector(`:scope > .cl[data-n="${inl.dataset.after}"] .call.open`)?.classList.remove('open');
+      inl.remove();
+      return;
+    }
+    const more = e.target.closest('.slice-more');
+    if (more) {
+      const box = more.closest('.slice-code'), a = +more.dataset.from, b = +more.dataset.to;
+      const data = await fileRows(box.dataset.file);
+      more.insertAdjacentHTML('beforebegin', codeRowsHtml(data.rows, a, b));
+      more.remove();
+      markCalls(box, data.raw, '');
+    }
+  });
+  const viewToggle = (p, mode) => `<span class="view-toggle" role="group" aria-label="Read this flow as">
+    <a href="#/${esc(p.id)}"${mode === 'prose' ? ' class="on" aria-current="page"' : ''}>Prose</a><a href="#/as-code/${esc(p.id)}"${mode === 'code' ? ' class="on" aria-current="page"' : ''} title="The code each step names, in order, as one read">Code</a></span>`;
+  const canSlice = p => p.kind === 'flow' && !!API;
+  async function showSlice(id, section) {
+    const p = byId.get(id);
+    if (!p) return showMissing(id);
+    if (!canSlice(p)) return showPage(id, section);
+    currentFile = p.file; currentPageId = id;
+    updateFilesButton();
+    rowsCache.clear();
+    let md;
+    try { md = await getText(p.file); } catch (e) { return showError(e); }
+    const steps = flowSteps(md);
+    const refs = steps.flatMap(st => st.refs);
+    const nFiles = new Set(refs.map(r => r.file)).size;
+    const mod = navigator.platform.startsWith('Mac') ? 'Cmd' : 'Ctrl';
+    $('#page').innerHTML = `<header class="page-head"><div class="crumbs"><span class="badge" style="${kindVar('flow')}">Flow</span>${viewToggle(p, 'code')}</div><h1>${esc(p.title)}</h1>${p.summary ? `<p class="summary">${esc(p.summary)}</p>` : ''}
+      <p class="slice-intro muted">${steps.length} step${steps.length === 1 ? '' : 's'}, ${refs.length} code ref${refs.length === 1 ? '' : 's'} across ${nFiles} file${nFiles === 1 ? '' : 's'}. Click an underlined call to expand it in place; ${mod}+click any name for its definition.</p></header>
+      <div class="slice" id="slice">${steps.length ? steps.map((st, i) => `<section class="slice-step" id="step-${i + 1}"><h3>${marked.parseInline(st.title)}</h3><div class="prose slice-desc">${marked.parser(st.tokens)}</div>
+        ${st.refs.length ? st.refs.map(r => blockShell(r, p.id)).join('') : '<p class="slice-gap">This step doesn’t name a function or file, so there’s no code to show for it.</p>'}</section>`).join('')
+        : '<p class="notice">This flow has no steps (### headings under “Step by step”), so there’s nothing to show as code.</p>'}</div>`;
+    $('#rail').innerHTML = steps.length ? `<section><h5>Steps</h5><ul>${steps.map((st, i) => `<li class="h3"><a href="#/as-code/${esc(p.id)}::step-${i + 1}">${esc(st.title.replace(/[`*_]/g, ''))}</a></li>`).join('')}</ul></section>` : '';
+    $('#main').classList.remove('wide');
+    document.title = `${p.title} (code) · ${M.project}`;
+    markActive(id);
+    tagInferred($('#slice'));
+    document.querySelectorAll('#slice .slice-block').forEach((el, i) => fillBlock(el, refs[i]));
+    if (section) document.getElementById(section)?.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }
+
   // ---------- views ----------
   async function showPage(id, section) {
     const p = byId.get(id);
@@ -757,6 +977,7 @@
     if (p.status === 'inferred') badges.push('<span class="badge inferred" title="Reconstructed from the code, not confirmed by a person">Inferred</span>');
     if (p.status && p.status !== 'inferred') badges.push(`<span class="badge" style="${kindVar('change')}">${esc(p.status)}</span>`);
     const meta = [p.updated && `Updated ${esc(p.updated)}`, p.generated_with && `written with /codedocs ${esc(p.generated_with)}`, p.locked && 'locked (not regenerated)', `content/${esc(p.file)}`].filter(Boolean).join(' · ');
+    if (canSlice(p)) badges.push(viewToggle(p, 'prose'));
     $('#page').innerHTML = `<header class="page-head"><div class="crumbs">${badges.join('')}</div><h1>${esc(p.title)}</h1>${p.summary ? `<p class="summary">${esc(p.summary)}</p>` : ''}</header>
       <div class="prose" id="prose">${marked.parse(md)}</div><div class="meta">${meta}</div>`;
     $('#rail').innerHTML = rail(p);
@@ -858,6 +1079,7 @@
     if (!h) return showHome();
     if (h === 'map') return showMap();
     if (h.startsWith('search/')) return showSearch(h.slice(7));
+    if (h.startsWith('as-code/')) { const [id, section] = h.slice(8).split('::'); return showSlice(id, section); }
     const [id, section] = h.split('::');
     return showPage(id, section);
   }

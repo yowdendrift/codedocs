@@ -18,6 +18,7 @@ import (
 type Def struct {
 	File string `json:"file"`
 	Line int    `json:"line"`
+	End  int    `json:"end,omitempty"` // last line of the definition (see spans.go)
 	Kind string `json:"kind,omitempty"`
 }
 
@@ -105,13 +106,14 @@ func (d *defIndex) get(files []string) map[string][]Def {
 		if err != nil {
 			continue
 		}
-		for i, ln := range strings.Split(string(b), "\n") {
+		ls := strings.Split(strings.ReplaceAll(string(b), "\r\n", "\n"), "\n")
+		for i, ln := range ls {
 			if len(ln) > 400 {
 				continue
 			}
 			for _, re := range pats {
 				if m := re.FindStringSubmatch(ln); m != nil && len(m[1]) > 1 && !defKeywordsSkip[m[1]] {
-					names[m[1]] = append(names[m[1]], Def{File: f, Line: i + 1})
+					names[m[1]] = append(names[m[1]], Def{File: f, Line: i + 1, End: blockEnd(ls, i+1, extOf(f))})
 					break
 				}
 			}
@@ -126,6 +128,7 @@ func (d *defIndex) get(files []string) map[string][]Def {
 type resolvedImport struct {
 	Path string `json:"path"`
 	Line int    `json:"line,omitempty"`
+	End  int    `json:"end,omitempty"` // last line of the definition
 	Dir  bool   `json:"dir,omitempty"`
 }
 
@@ -145,7 +148,11 @@ func resolveImports(c *repoCtx, fl *fileLinks) map[string]resolvedImport {
 		if sym == "" {
 			sym = name
 		}
-		out[name] = resolvedImport{Path: t.Path, Line: max(1, resolveSymbol(t.Path, sym))}
+		imp := resolvedImport{Path: t.Path, Line: max(1, resolveSymbol(t.Path, sym))}
+		if _, to, ok := symbolSpan(t.Path, sym); ok {
+			imp.End = to
+		}
+		out[name] = imp
 	}
 	return out
 }
@@ -183,7 +190,7 @@ func rankDefinitions(name string, all []Def, from string, imports map[string]res
 				return in
 			}
 		} else {
-			return []Def{{File: t.Path, Line: t.Line, Kind: "import"}}
+			return []Def{{File: t.Path, Line: t.Line, End: t.End, Kind: "import"}}
 		}
 	}
 	for _, d := range all {

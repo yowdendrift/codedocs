@@ -4,7 +4,7 @@ summary: codedocs export turns a docs folder into a site any static host can ser
 order: 60
 components: [export, code-intelligence, viewer, distribution]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-12
 ---
 # Publishing the docs as a static site
 
@@ -40,8 +40,10 @@ URL from the `origin` remote and pins it to the docs' `last_synced` commit, or `
 
 ### 2. Precompute what the server would answer
 
-The file list goes into code/index.json, definitions into code/defs.json, and each file's
-import links and resolved import targets into `code/meta/<path>.json`, all using the same
+Still in `tool/export.go#cmdExport`, the file list goes into code/index.json and definitions
+(with their end lines) into code/defs.json. Call sites of every symbol the docs name come from
+`tool/callers.go#findCallers` and go into code/callers.json. Each file's import links and
+resolved import targets go into `code/meta/<path>.json`. All of it uses the same
 [code intelligence](../components/code-intelligence.md) as `serve`.
 
 ### 3. Deploy
@@ -65,4 +67,6 @@ and the index, and "Open in editor" becomes "View on GitHub".
 
 The static path duplicates the server's ranking and glob rules in JavaScript. Any change to
 `tool/defs.go#rankDefinitions` or `tool/util.go#globRe` needs the same change in the viewer;
-`tool/parity_test.go#TestViewerParity` fails until both agree.
+`tool/parity_test.go#TestViewerParity` fails until both agree. Call sites are precomputed only
+for symbols the pages name, so a symbol added to a page has no count on the site until the next
+export.
