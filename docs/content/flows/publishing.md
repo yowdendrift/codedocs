@@ -66,6 +66,7 @@ and the index, and "Open in editor" becomes "View on GitHub".
 ## Things to know before changing it
 
 The static path duplicates the server's ranking and glob rules in JavaScript. Any change to
-`tool/defs.go#findDefinition` or `tool/util.go#globRe` needs the same change in the viewer.
-Call sites are precomputed only for symbols the pages name, so a symbol added to a page has no
-count on the site until the next export.
+`tool/defs.go#rankDefinitions` or `tool/util.go#globRe` needs the same change in the viewer;
+`tool/parity_test.go#TestViewerParity` fails until both agree. Call sites are precomputed only
+for symbols the pages name, so a symbol added to a page has no count on the site until the next
+export.

@@ -55,8 +55,8 @@ writes `tool/export.go#codeIndex`. Definitions are stored compactly as
 in place. Call sites are worked out only for the `file#Symbol` refs the pages make (each
 manifest entry's `syms`), with `tool/callers.go#findCallers`, so code/callers.json stays small
 (a full call graph would not, inferred). Per-file `tool/export.go#codeMeta` holds the links from
-`tool/links.go#linksFor`, imports resolved to a line and its definition's extent
-(`tool/export.go#exportImport`), and the
+`tool/links.go#linksFor`, imports resolved to a line and its definition's extent by
+`tool/defs.go#resolveImports` (the same code the server uses), and the
 lines of symbols those links point at, so following an import lands on the right line without a
 server. Files with nothing to say get no meta file; code/index.json lists the ones that do, so
 the viewer never requests a missing file.

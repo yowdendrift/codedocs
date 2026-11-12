@@ -22,6 +22,9 @@ jobs:
       - name: Vet
         working-directory: tool
         run: go vet ./...
+      - name: Tests (including Go/viewer parity, which needs Node)
+        working-directory: tool
+        run: go test ./...
       - name: Build every target
         run: sh build.sh dist
       - name: Build for this machine and check the example docs

@@ -82,9 +82,11 @@ code panel instead.
 `tool/assets/index.html#Code` hides the difference between serving and a static export. With the
 server it calls `/api/file`, `/api/files`, `/api/definition` and `/api/callers`. In an export
 (the manifest says `static`), it reads code/index.json, fetches source from GitHub, filters file
-lists with its own `tool/assets/index.html#globRe`, ranks definitions from code/defs.json the way
-the server would, and reads call sites from code/callers.json. "Open in editor" becomes "View on
-GitHub".
+lists with its own `tool/assets/index.html#globRe`, ranks definitions from code/defs.json with
+`tool/assets/index.html#rankDefinitions` (the same rules as the server), and reads call sites
+from code/callers.json. `globRe` and `rankDefinitions` live between `// parity:begin` and
+`// parity:end` markers, self-contained, so `tool/parity_test.go#TestViewerParity` can run them
+in Node against the Go originals. "Open in editor" becomes "View on GitHub".
 
 ### Libraries
 

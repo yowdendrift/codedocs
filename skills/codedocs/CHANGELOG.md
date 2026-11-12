@@ -10,6 +10,9 @@ Each entry says what changed and whether it affects existing docs:
 - **theme**: new variables in the default theme.css; `/codedocs upgrade` adds them to existing themes
 
 ## Unreleased
+- **viewer**: the mind map now uses the theme's colours. In dark mode its headings ("Components",
+  "Flows"…) and the "via …" lines were dark grey on a dark background; markmap's own defaults
+  were overriding the theme.
 - **viewer: read a flow as code.** Flow pages get a Prose / Code toggle. The Code view shows each
   step's description followed by the full body of every function the step names, in step order:
   one top-to-bottom read across all the files the flow touches. Click an underlined call to

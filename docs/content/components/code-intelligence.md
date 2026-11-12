@@ -2,7 +2,7 @@
 title: Code intelligence
 summary: Works out what a source file imports, where names are defined and where they end, and roughly where they're called, across several languages, with patterns rather than parsers. Powers clickable imports, go-to-definition, a flow's Code view and find.
 order: 40
-paths: [tool/links.go, tool/defs.go, tool/find.go, tool/spans.go, tool/callers.go]
+paths: [tool/links.go, tool/defs.go, tool/find.go, tool/spans.go, tool/callers.go, tool/parity_test.go]
 generated_with: 0.1.0
 updated: 2026-11-12
 ---
@@ -52,9 +52,12 @@ resolves in a repo, which `/codedocs links` uses to decide whether to add alias 
 `tool/defs.go#defPatterns` (specific sets for JS, PHP, Go, Python and GDScript, and a generic
 set for everything else) and maps each name to where it's declared and where that declaration
 ends (`tool/defs.go#Def`), cached for 20 seconds.
-`tool/defs.go#findDefinition` ranks candidates: a name imported into the current file wins
-(resolved to the exact symbol, or searched within the imported Go package); then a definition
-in the same file; then everything else, nearer folders first, capped at 40.
+`tool/defs.go#findDefinition` gathers the candidates and the current file's imports, resolved by
+`tool/defs.go#resolveImports` to a file, line and extent (or a Go package folder), and hands them
+to `tool/defs.go#rankDefinitions`: a name imported into the current file wins (searched within
+the package for a Go import); then a definition in the same file; then everything else, nearer
+folders first, capped at 40. The ranking is a pure function of its inputs so it can be tested
+against the viewer's copy.
 
 ### Symbol extents
 
@@ -99,6 +102,7 @@ static sites, and by the `find` and `links` commands.
 - Extents come from bracket matching. Code that confuses it (a `/` the heuristic in
   `tool/spans.go#regexStarts` misjudges, or a bracket inside an unusual string syntax) can
   make a body stop early or run on, up to the 400-line cap.
-- The static viewer re-implements the ranking in `findDefinition` in JavaScript
-  (`tool/assets/index.html#Code`). Changing one without the other makes exported sites behave
-  differently from `serve`.
+- The static viewer has JavaScript copies of `rankDefinitions` and the glob rules, so exported
+  sites behave like `serve`. `tool/parity_test.go#TestViewerParity` runs both versions on the same
+  cases and fails on any difference, so change them together and run `go test ./...` (it needs
+  Node; CI always runs it).

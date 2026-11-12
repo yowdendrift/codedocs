@@ -63,8 +63,9 @@ import (a folder), lists the package's files.
 ### 5. Go to definition
 
 `tool/assets/index.html#goToDefinition` reads the word under the pointer and asks
-`Code.definition`, which uses `tool/defs.go#findDefinition` on the server or the same ranking
-over code/defs.json in an export. One match opens directly; several show a list to choose from.
+`Code.definition`. On the server that's `tool/defs.go#findDefinition`; in an export it's
+`tool/assets/index.html#rankDefinitions` over code/defs.json, a tested copy of the server's
+`tool/defs.go#rankDefinitions`. One match opens directly; several show a list to choose from.
 
 ## When it goes wrong
 

@@ -31,10 +31,12 @@ docs folder's config and compares as older than everything.
 ## The viewer has copies of Go logic
 
 Static exports can't call the server, so `tool/assets/index.html#globRe` mirrors
-`tool/util.go#globRe`, and the definition ranking in `tool/assets/index.html#Code` mirrors
-`tool/defs.go#findDefinition`. Change one, change both. The same goes for how a flow's steps are
-found: `tool/assets/index.html#flowSteps` (the Code view) and `tool/cmds.go#flowStepGaps` (the
-`check` warning).
+`tool/util.go#globRe`, and `tool/assets/index.html#rankDefinitions` mirrors
+`tool/defs.go#rankDefinitions`. Change one, change both. `tool/parity_test.go#TestViewerParity`
+compares them on the same cases and fails CI if they disagree; locally it needs Node, and skips
+without it. How a flow's steps are found is mirrored too, without a test:
+`tool/assets/index.html#flowSteps` (the Code view) and `tool/cmds.go#flowStepGaps` (the `check`
+warning).
 
 ## `${CLAUDE_SKILL_DIR}` only works in SKILL.md
 

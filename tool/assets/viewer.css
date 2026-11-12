@@ -191,7 +191,14 @@ mark { background: var(--mark); color: inherit; padding: 0 .1em; border-radius: 
 /* mind map */
 .map-wrap { height: calc(100vh - 12rem); min-height: 28rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .map-wrap svg { width: 100%; height: 100%; }
-.markmap { --markmap-text-color: var(--text); --markmap-a-color: var(--link); --markmap-code-bg: var(--code-bg); --markmap-code-color: var(--code-text); font-family: var(--font-body); }
+/* markmap injects its own .markmap defaults (dark grey text, white circles) after this file,
+   so the theme's colours need a more specific selector to win, in dark mode especially. */
+.map-wrap .markmap {
+  --markmap-text-color: var(--text); --markmap-a-color: var(--link); --markmap-a-hover-color: var(--accent);
+  --markmap-code-bg: var(--code-bg); --markmap-code-color: var(--code-text);
+  --markmap-circle-open-bg: var(--surface); --markmap-highlight-bg: var(--accent-soft);
+  --markmap-font: 400 16px/20px var(--font-body);
+}
 
 .empty { color: var(--muted); }
 .notice { padding: 1rem 1.2rem; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); }

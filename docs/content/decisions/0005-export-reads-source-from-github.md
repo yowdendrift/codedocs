@@ -29,4 +29,5 @@ GitHub, came from the user.
 
 - The site is small and the code shown always matches the commit the docs were written against.
 - Only works for code hosted publicly on GitHub (or another host given with `--source-url`).
-- The viewer carries a JavaScript copy of the glob and definition-ranking rules.
+- The viewer carries a JavaScript copy of the glob and definition-ranking rules, kept in step
+  with the Go originals by a test that runs both.
