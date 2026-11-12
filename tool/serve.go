@@ -261,6 +261,16 @@ func cmdServe(o options) {
 		}
 		jsonResp(w, 200, map[string]any{"name": name, "matches": findDefinition(getRepoCtx(docsDir), q.Get("from"), name)})
 	})
+	// Approximate call sites of a symbol, for the flow code view's "≈N calls" badge.
+	mux.HandleFunc("/api/callers", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		file, sym := q.Get("path"), q.Get("symbol")
+		if file == "" || sym == "" || len(sym) > 200 {
+			jsonResp(w, 400, map[string]string{"error": "bad path or symbol"})
+			return
+		}
+		jsonResp(w, 200, map[string]any{"callers": findCallers(getRepoCtx(docsDir), file, sym)})
+	})
 	mux.HandleFunc("/api/file", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		p := q.Get("path")

@@ -202,7 +202,7 @@ sequenceDiagram
 
 ## Step by step
 ### 1. <Step name>
-Which component, what happens, which function: code ref. Data passed on.
+Which component, what happens, which function: a `file#Symbol` ref. Data passed on.
 ### 2. …
 
 ## When it goes wrong
@@ -212,6 +212,8 @@ Errors, cancellation, partial results: where they are handled.
 ~~~
 
 Overview level = "In short" plus the diagram. Detailed level = "Step by step" with code refs.
+The viewer reads the steps as the ### headings under "Step by step" and offers a "Code" view: the
+body of every function the steps name, in order, with calls that expand in place.
 
 ### topics/<slug>.md
 

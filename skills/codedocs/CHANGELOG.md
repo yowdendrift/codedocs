@@ -9,6 +9,24 @@ Each entry says what changed and whether it affects existing docs:
   leave it alone, so they never mark pages outdated.
 - **theme**: new variables in the default theme.css; `/codedocs upgrade` adds them to existing themes
 
+## Unreleased
+- **viewer: read a flow as code.** Flow pages get a Prose / Code toggle. The Code view shows each
+  step's description followed by the full body of every function the step names, in step order:
+  one top-to-bottom read across all the files the flow touches. Click an underlined call to
+  expand the callee's body in place (and again inside that); Ctrl/Cmd+click any name still opens
+  its definition in the panel. Each block shows the other pages that name the same symbol, and
+  an approximate call count ("≈7 calls in 3 files") that lists the call sites. Works served and
+  in static exports.
+- **Symbol extents**: the tool now works out where a definition ends as well as where it starts
+  (brace matching that skips strings, comments, template literals and regexes; indentation for
+  Python and GDScript). The manifest gains `spans` (`"file#Symbol"` → `[from, to]`, including
+  doc comments above) and each page's `syms`. Go-to-definition results and `code/defs.json`
+  carry the end line; exports add `code/callers.json`. The server adds `/api/callers`.
+- **`check` warns about flow steps that name no function** (`step-without-symbol`), or only a
+  long code file. Warnings don't fail the check.
+- **guidance**: flow steps should name the function doing the work as `file#Symbol`.
+  (`reference/VERSION` not bumped: existing pages mostly comply, and `check` points at the rest.)
+
 ## 0.6.0 (2026-10-29)
 - **`codedocs export <folder>`** (new): writes the docs as a static site for GitHub Pages or any
   web host, with a working code panel. The source isn't copied: the viewer fetches each file from

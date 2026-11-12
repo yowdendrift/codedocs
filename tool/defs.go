@@ -18,6 +18,7 @@ import (
 type Def struct {
 	File string `json:"file"`
 	Line int    `json:"line"`
+	End  int    `json:"end,omitempty"` // last line of the definition (see spans.go)
 	Kind string `json:"kind,omitempty"`
 }
 
@@ -105,13 +106,14 @@ func (d *defIndex) get(files []string) map[string][]Def {
 		if err != nil {
 			continue
 		}
-		for i, ln := range strings.Split(string(b), "\n") {
+		ls := strings.Split(strings.ReplaceAll(string(b), "\r\n", "\n"), "\n")
+		for i, ln := range ls {
 			if len(ln) > 400 {
 				continue
 			}
 			for _, re := range pats {
 				if m := re.FindStringSubmatch(ln); m != nil && len(m[1]) > 1 && !defKeywordsSkip[m[1]] {
-					names[m[1]] = append(names[m[1]], Def{File: f, Line: i + 1})
+					names[m[1]] = append(names[m[1]], Def{File: f, Line: i + 1, End: blockEnd(ls, i+1, extOf(f))})
 					break
 				}
 			}
@@ -144,7 +146,11 @@ func findDefinition(c *repoCtx, from, name string) []Def {
 					if sym == "" {
 						sym = name
 					}
-					return []Def{{File: t.Path, Line: max(1, resolveSymbol(t.Path, sym)), Kind: "import"}}
+					d := Def{File: t.Path, Line: max(1, resolveSymbol(t.Path, sym)), Kind: "import"}
+					if _, to, ok := symbolSpan(t.Path, sym); ok {
+						d.End = to
+					}
+					return []Def{d}
 				}
 			}
 		}

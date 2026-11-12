@@ -303,3 +303,34 @@ body.ctrl-down .code .cc { cursor: pointer; }
 @media (prefers-color-scheme: dark) { :where(:root:not([data-theme="light"])) { --kind-topic: #ec8fb2; --insight: #6fd39a; } }
 :where(:root[data-theme="dark"]) { --kind-topic: #ec8fb2; --insight: #6fd39a; }
 .badge.audience { --kind: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+/* ---------- flow as code ---------- */
+.view-toggle { display: inline-flex; margin-left: auto; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; font-size: .78rem; }
+.view-toggle a { padding: .12rem .7rem; color: var(--muted); text-decoration: none; }
+.view-toggle a + a { border-left: 1px solid var(--border); }
+.view-toggle a:hover { color: var(--text); }
+.view-toggle a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.slice-intro { margin: .8rem 0 0; font-size: .85rem; }
+.slice-step { margin: 0 0 2.2rem; scroll-margin-top: 1.5rem; }
+.slice-step > h3 { font-family: var(--font-heading); font-weight: var(--heading-weight); font-size: 1.12rem; margin: 0 0 .4rem; }
+.slice-desc { font-size: .95rem; }
+.slice-desc > :last-child { margin-bottom: .7rem; }
+.slice-gap { margin: 0; padding: .6rem .9rem; font-size: .85rem; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius); }
+.slice-block, .slice-inline { border: 1px solid var(--border); border-radius: var(--radius); background: var(--code-panel-bg, var(--surface)); margin: 0 0 .8rem; overflow: hidden; }
+.slice-head { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .8rem; padding: .4rem .7rem; font-size: .8rem; background: var(--sidebar-bg); border-bottom: 1px solid var(--border); }
+.slice-head .ref { font-family: var(--font-mono); font-size: .8rem; color: var(--ref-text); text-decoration: none; }
+.slice-head a.ref:hover { text-decoration: underline; }
+.slice-also { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .55rem; }
+.slice-also a { display: inline-flex; align-items: baseline; gap: .3rem; text-decoration: none; }
+.slice-callers { margin-left: auto; font: inherit; font-size: .72rem; font-weight: 600; color: var(--accent); background: none; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 999px; padding: 0 .5rem; cursor: pointer; }
+.slice-callers:disabled { color: var(--muted); border-color: var(--border); cursor: default; font-weight: 500; }
+.slice-callers[hidden] { display: none; }
+.slice-code { padding: .35rem 0; min-width: 0; overflow-x: auto; }
+.slice-code .cn { cursor: default; }
+.slice-code .call { cursor: pointer; text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); text-underline-offset: 3px; }
+.slice-code .call:hover, .slice-code .call.open { text-decoration: underline; text-decoration-color: currentColor; }
+.slice-code .call.open { background: var(--code-hl); border-radius: 2px; }
+.slice-inline { margin: .3rem .6rem .5rem 4.2em; border-left: 3px solid var(--accent); }
+.slice-inline .slice-fold { margin-left: auto; width: 1.4rem; height: 1.4rem; }
+.slice-more { display: block; margin: .3rem 0 .2rem 4.2em; padding: .2rem .6rem; font: inherit; font-family: var(--font-body); font-size: .78rem; color: var(--link); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; }
+.slice-more:hover { border-color: var(--link); }

@@ -40,7 +40,8 @@ posts it to the worker.
 `src/render/encode.worker.ts` encodes frame by frame, posting progress after each one.
 
 ### 5. Finish
-On `done` or `error`, the queue records the result and calls `finish`, which starts the next job.
+On `done` or `error`, the queue records the result and calls
+`src/render/queue.ts#RenderQueue.finish`, which starts the next job.
 
 ## When it goes wrong
 Errors in the worker come back as `error` messages and mark the job `failed`. There is no retry.

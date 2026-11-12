@@ -314,22 +314,22 @@ func symbolRegexps(part string) symRes {
 
 // resolveSymbol finds the line defining (or first mentioning) a symbol; supports Class.method. 0 = not found.
 func resolveSymbol(file, symbol string) int {
-	var text string
-	if v, ok := fileCache.Load(file); ok {
-		text = v.(string)
-	} else {
-		t, err := readText(filepath.Join(root, filepath.FromSlash(file)))
-		if err != nil {
-			return 0
-		}
-		text = t
-		fileCache.Store(file, t)
+	line, _ := locateSymbol(file, symbol)
+	return line
+}
+
+// locateSymbol is resolveSymbol that also says whether the last part was found as a
+// definition (true) or only as a mention (false).
+func locateSymbol(file, symbol string) (int, bool) {
+	ls := fileLines(file)
+	if ls == nil {
+		return 0, false
 	}
-	ls := strings.Split(text, "\n")
-	start, found := 0, -1
+	start, found, def := 0, -1, false
 	for _, part := range strings.Split(symbol, ".") {
 		re := symbolRegexps(part)
 		hit := -1
+		def = true
 		for i := start; i < len(ls); i++ {
 			if re.strong.MatchString(ls[i]) && !reNotDef.MatchString(ls[i]) {
 				hit = i
@@ -343,6 +343,7 @@ func resolveSymbol(file, symbol string) int {
 			}
 		}
 		if hit == -1 {
+			def = false
 			for i := start; i < len(ls); i++ {
 				if re.word.MatchString(ls[i]) {
 					hit = i
@@ -351,11 +352,11 @@ func resolveSymbol(file, symbol string) int {
 			}
 		}
 		if hit == -1 {
-			return 0
+			return 0, false
 		}
 		found, start = hit, hit
 	}
-	return found + 1
+	return found + 1, def
 }
 
 // ---------- manifest ----------
@@ -374,6 +375,7 @@ type Entry struct {
 	Locked        bool      `json:"locked,omitempty"`
 	Audience      string    `json:"audience,omitempty"`
 	Refs          []string  `json:"refs"`
+	Syms          []string  `json:"syms,omitempty"` // symbol refs on the page, "file#Symbol", in order
 	Paths         *[]string `json:"paths,omitempty"`
 	Flows         *[]string `json:"flows,omitempty"`
 	Concerns      *[]string `json:"concerns,omitempty"`
@@ -383,16 +385,17 @@ type Entry struct {
 }
 
 type Manifest struct {
-	Project      string         `json:"project"`
-	SkillVersion string         `json:"skill_version"`
-	ToolVersion  string         `json:"tool_version"`
-	RepoRootAbs  string         `json:"repo_root_abs"`
-	Editor       string         `json:"editor"`
-	Generated    string         `json:"generated"`
-	LastSynced   *string        `json:"last_synced"`
-	Pages        []*Entry       `json:"pages"`
-	Symbols      map[string]int `json:"symbols"`
-	Static       bool           `json:"static,omitempty"` // a codedocs export: the code panel reads code/
+	Project      string            `json:"project"`
+	SkillVersion string            `json:"skill_version"`
+	ToolVersion  string            `json:"tool_version"`
+	RepoRootAbs  string            `json:"repo_root_abs"`
+	Editor       string            `json:"editor"`
+	Generated    string            `json:"generated"`
+	LastSynced   *string           `json:"last_synced"`
+	Pages        []*Entry          `json:"pages"`
+	Symbols      map[string]int    `json:"symbols"`
+	Spans        map[string][2]int `json:"spans,omitempty"`  // "file#Symbol" or "file:N" -> [from, to] lines of the definition or block
+	Static       bool              `json:"static,omitempty"` // a codedocs export: the code panel reads code/
 }
 
 var kindOrder = []string{"overview", "map", "topic", "component", "flow", "concern", "glossary", "decision", "gotchas", "change", "page"}
@@ -440,16 +443,33 @@ func buildManifest(docsDir string, cfg *Config) *Manifest {
 		}
 	}
 	symbols := map[string]int{}
+	spans := map[string][2]int{}
 	entries := []*Entry{}
 	for _, p := range pages {
 		refs := extractRefs(p.Body)
-		refFiles := []string{}
+		refFiles, syms := []string{}, []string{}
 		for _, r := range refs {
 			refFiles = append(refFiles, r.File)
 			key := r.File + "#" + r.Symbol
-			if r.Symbol != "" && symbols[key] == 0 && fileExists(filepath.Join(root, filepath.FromSlash(r.File))) {
+			if r.Symbol != "" {
+				syms = append(syms, key)
+			}
+			if !fileExists(filepath.Join(root, filepath.FromSlash(r.File))) {
+				continue
+			}
+			if r.Symbol != "" && symbols[key] == 0 {
 				if ln := resolveSymbol(r.File, r.Symbol); ln > 0 {
 					symbols[key] = ln
+				}
+				if from, to, ok := symbolSpan(r.File, r.Symbol); ok {
+					spans[key] = [2]int{from, to}
+				}
+			} else if r.Symbol == "" && r.Line > 0 && r.End == 0 {
+				lk := r.File + ":" + strconv.Itoa(r.Line)
+				if _, done := spans[lk]; !done {
+					if from, to := lineSpan(r.File, r.Line); from > 0 {
+						spans[lk] = [2]int{from, to}
+					}
 				}
 			}
 		}
@@ -461,6 +481,9 @@ func buildManifest(docsDir string, cfg *Config) *Manifest {
 			ID: p.ID, File: p.File, Kind: p.Kind, Title: p.Title, Summary: p.str("summary"), Order: order,
 			Headings: headings(p.Body), Status: p.str("status"), GeneratedWith: p.str("generated_with"),
 			Updated: p.str("updated"), Locked: p.flag("locked"), Audience: p.str("audience"), Refs: uniq(refFiles),
+		}
+		if len(syms) > 0 {
+			e.Syms = uniq(syms)
 		}
 		if p.Kind == "component" {
 			paths := p.list("paths")
@@ -503,6 +526,6 @@ func buildManifest(docsDir string, cfg *Config) *Manifest {
 	return &Manifest{
 		Project: cfg.Project, SkillVersion: cfg.SkillVersion, ToolVersion: version, RepoRootAbs: cfg.RepoRootAbs,
 		Editor: editor, Generated: time.Now().UTC().Format(time.RFC3339), LastSynced: cfg.LastSynced,
-		Pages: entries, Symbols: symbols,
+		Pages: entries, Symbols: symbols, Spans: spans,
 	}
 }

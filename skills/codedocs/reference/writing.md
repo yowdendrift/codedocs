@@ -75,7 +75,10 @@ Long docs don't get read. Aim for:
 - **Components:** the 4–10 things a developer would draw as boxes on a whiteboard. Fewer, larger
   components beat many tiny ones; their sub-parts go in "Parts".
 - **Flows:** 3–6 journeys, chosen by how often they run and how risky or complex they are. Always
-  include the main thing a user does, and whatever has the most moving parts.
+  include the main thing a user does, and whatever has the most moving parts. In each step, name
+  the function doing the work as a `file#Symbol` ref, not just its file: the viewer's "Code" view
+  of a flow shows those functions in step order as one read, so a step without one is a gap in
+  it. A whole-file ref is fine for a short file or one that isn't code (a workflow, a guide).
 - **Concerns:** only patterns that genuinely cut across several components (state management,
   errors, threading/async, persistence, undo, config, logging). Skip ones that don't exist.
 - **Decisions:** only choices that shape the code and that someone might reasonably question or

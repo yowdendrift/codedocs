@@ -2,7 +2,7 @@
 title: Code intelligence
 summary: Works out what a source file imports and where names are defined, across several languages, with patterns rather than parsers. Powers clickable imports, go-to-definition and find.
 order: 40
-paths: [tool/links.go, tool/defs.go, tool/find.go]
+paths: [tool/links.go, tool/defs.go, tool/find.go, tool/spans.go, tool/callers.go]
 generated_with: 0.1.0
 updated: 2026-10-29
 ---
