@@ -370,3 +370,14 @@ func TestExampleGraph(t *testing.T) {
 		t.Error("two builds of the same docs differ")
 	}
 }
+
+// The flow view page must address its script and stylesheet by content hash, or browsers pair
+// a new page with a cached old script (/lib/ is cached for a day).
+func TestFlowviewPageIsVersioned(t *testing.T) {
+	page := string(flowviewPage())
+	for _, re := range []string{`src="lib/flowview\.js\?v=[0-9a-f]{8}"`, `href="flowview\.css\?v=[0-9a-f]{8}"`} {
+		if !regexp.MustCompile(re).MatchString(page) {
+			t.Errorf("flowview.html has no %s; did the tag in tool/assets/flowview.html change?", re)
+		}
+	}
+}

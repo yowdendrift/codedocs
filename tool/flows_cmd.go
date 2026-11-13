@@ -4,6 +4,8 @@ package main
 // `codedocs flows --scan`: what the agent needs before writing flowgraph blocks.
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,9 +27,23 @@ func writeFlowView(dir string, g *Graph) {
 	}
 	write("flowgraph.json", marshal(g))
 	write("flowgraph.js", flowgraphJS(g))
-	write("flowview.html", readAsset("flowview.html"))
+	write("flowview.html", flowviewPage())
 	write("flowview.css", readAsset("flowview.css"))
 	write("lib/flowview.js", gunzip(readAsset("lib/flowview.js.gz")))
+}
+
+// flowviewPage is flowview.html with its script and stylesheet addressed by a hash of their
+// contents (lib/flowview.js?v=…). The page itself is never cached, but /lib/ is, for a day:
+// without this a browser pairs a new page with yesterday's script after an upgrade.
+func flowviewPage() []byte {
+	ver := func(name string) string {
+		sum := sha256.Sum256(readAsset(name))
+		return hex.EncodeToString(sum[:4])
+	}
+	return []byte(strings.NewReplacer(
+		`src="lib/flowview.js"`, `src="lib/flowview.js?v=`+ver("lib/flowview.js.gz")+`"`,
+		`href="flowview.css"`, `href="flowview.css?v=`+ver("flowview.css")+`"`,
+	).Replace(string(readAsset("flowview.html"))))
 }
 
 func flowgraphJS(g *Graph) []byte {

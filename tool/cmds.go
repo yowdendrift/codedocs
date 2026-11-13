@@ -240,7 +240,7 @@ func cmdInstallViewer(o options) {
 	}
 	write("index.html", readAsset("index.html"))
 	write("viewer.css", readAsset("viewer.css"))
-	write("flowview.html", readAsset("flowview.html"))
+	write("flowview.html", flowviewPage())
 	write("flowview.css", readAsset("flowview.css"))
 	actions = append(actions, "wrote index.html, viewer.css, flowview.html, flowview.css")
 	if !fileExists(filepath.Join(docsDir, "theme.css")) {

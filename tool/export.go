@@ -70,7 +70,7 @@ func cmdExport(o options) {
 	// The viewer, its libraries and the theme.
 	write("index.html", readAsset("index.html"))
 	write("viewer.css", readAsset("viewer.css"))
-	write("flowview.html", readAsset("flowview.html"))
+	write("flowview.html", flowviewPage())
 	write("flowview.css", readAsset("flowview.css"))
 	entries, _ := assets.ReadDir("assets/lib")
 	for _, e := range entries {

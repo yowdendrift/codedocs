@@ -204,7 +204,7 @@ func cmdServe(o options) {
 		send(w, "text/css; charset=utf-8", readAsset("viewer.css"))
 	})
 	mux.HandleFunc("/flowview.html", func(w http.ResponseWriter, r *http.Request) {
-		send(w, "text/html; charset=utf-8", readAsset("flowview.html"))
+		send(w, "text/html; charset=utf-8", flowviewPage())
 	})
 	mux.HandleFunc("/flowview.css", func(w http.ResponseWriter, r *http.Request) {
 		send(w, "text/css; charset=utf-8", readAsset("flowview.css"))
