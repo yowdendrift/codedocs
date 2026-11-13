@@ -86,6 +86,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     scene.add(g);
   }
   // Districts: every outline in one draw call.
+  const districtMat = new THREE.LineBasicMaterial({ color: 0x6f8ff0, transparent: true, opacity: 0.28 });
   {
     const p: number[] = [];
     for (const d of L.districts) {
@@ -93,7 +94,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       p.push(x0, y, z0, x1, y, z0, x1, y, z0, x1, y, z1, x1, y, z1, x0, y, z1, x0, y, z1, x0, y, z0);
     }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
-    scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x6f8ff0, transparent: true, opacity: 0.28 })));
+    scene.add(new THREE.LineSegments(g, districtMat));
   }
 
   // ---------- units: one instanced mesh per shape ----------
@@ -107,7 +108,12 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   };
   const C = { code: new THREE.Color('#dce6ff'), eff: new THREE.Color('#ff8a5c'), dark: new THREE.Color('#283042'), gap: new THREE.Color('#ff4d6d') };
   const tmpC = new THREE.Color();
-  interface UN { u: Unit; pos: THREE.Vector3; mesh: THREE.InstancedMesh; slot: number; color: THREE.Color; pop: number; labelT: number; base: number; spin: boolean }
+  // pos: the unit's home on its slab. show: where it's drawn, which moves between pos and its
+  // place in the Focus view (from → to over mt 0..1). vis fades units the Focus view leaves out.
+  interface UN {
+    u: Unit; pos: THREE.Vector3; show: THREE.Vector3; from: THREE.Vector3; to: THREE.Vector3; mt: number; vis: number;
+    mesh: THREE.InstancedMesh; slot: number; color: THREE.Color; pop: number; labelT: number; base: number; spin: boolean;
+  }
   const un: UN[] = [];
   const byKind = new Map<UnitKind, Unit[]>();
   for (const u of m.units) { if (!byKind.has(u.kind)) byKind.set(u.kind, []); byKind.get(u.kind)!.push(u); }
@@ -119,9 +125,9 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     kindMesh.set(kind, mesh);
     scene.add(mesh);
     list.forEach((u, slot) => {
-      const p = L.pos[u.index];
+      const p = L.pos[u.index], at = new THREE.Vector3(p.x, p.y + LIFT[kind] * NS, p.z);
       un[u.index] = {
-        u, mesh, slot, pos: new THREE.Vector3(p.x, p.y + LIFT[kind] * NS, p.z), color: C.dark.clone(), pop: 0, labelT: 0,
+        u, mesh, slot, pos: at, show: at.clone(), from: at.clone(), to: at.clone(), mt: 1, vis: 1, color: C.dark.clone(), pop: 0, labelT: 0,
         base: 1 + 0.2 * Math.max(0, u.flows.length - 1), spin: kind === 'external' || kind === 'file',
       };
       mesh.setColorAt(slot, C.dark);
@@ -135,9 +141,10 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   scene.add(hit);
   // A faint ring on the sheet under each code unit.
   const code = byKind.get('code') ?? [];
+  const sheetRingMat = new THREE.MeshBasicMaterial({ color: 0x7d98ff, transparent: true, opacity: 0.22, depthWrite: false });
   if (code.length) {
     const g = new THREE.RingGeometry(0.34 * NS, 0.44 * NS, 28); g.rotateX(-Math.PI / 2);
-    const rings = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: 0x7d98ff, transparent: true, opacity: 0.22, depthWrite: false }), code.length);
+    const rings = new THREE.InstancedMesh(g, sheetRingMat, code.length);
     code.forEach((u, i) => { const p = L.pos[u.index]; rings.setMatrixAt(i, mtx.makeTranslation(p.x, p.y + 0.05, p.z)); });
     scene.add(rings);
   }
@@ -161,13 +168,11 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     run: { t: number; idx: number; hold: number };
     tube?: THREE.Mesh<THREE.TubeGeometry, THREE.MeshBasicMaterial>; stubs?: THREE.Group;
     stubLabels: { text: string; pos: THREE.Vector3; origin: number }[];
+    dirty: boolean; // a unit on it moved: rebuild the path from where the units are drawn
   }
   const many = m.flows.length > 12;
-  const FL: FR[] = m.flows.map((f, fi) => {
-    const lanes = Math.min(m.flows.length, 8), k = fi % 8;
-    const o = (k - (lanes - 1) / 2) * 0.17;
-    const off = new THREE.Vector3(o, 0, o);
-    const pts = f.steps.map(s => un[s.unit.index].pos.clone().add(off));
+  // The curve through a flow's units: arcs over hops within a layer, S-bends between layers.
+  function buildPath(pts: THREE.Vector3[]) {
     const path = new THREE.CurvePath<THREE.Vector3>(), seg: number[] = [];
     for (let i = 0; i < pts.length - 1; i++) {
       const a = pts[i], b = pts[i + 1], dy = b.y - a.y;
@@ -181,8 +186,16 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     let acc = 0; const stepT = [0];
     seg.forEach(l => { acc += l; stepT.push(Math.min(1, acc / total)); });
     if (pts.length === 1) stepT.length = 1;
+    return { path, total, stepT };
+  }
+  const pathPoints = (f: Flow, off: THREE.Vector3) => f.steps.map(s => un[s.unit.index].show.clone().add(off));
+  const FL: FR[] = m.flows.map((f, fi) => {
+    const lanes = Math.min(m.flows.length, 8), k = fi % 8;
+    const o = (k - (lanes - 1) / 2) * 0.17;
+    const off = new THREE.Vector3(o, 0, o);
+    const { path, total, stepT } = buildPath(pathPoints(f, off));
     const segs = many ? Math.max(24, Math.min(f.steps.length * 16, Math.round(total * 3))) : Math.max(80, f.steps.length * 50);
-    return { f, path, total, stepT, segs, start: 0, count: 0, off, run: { t: hash01(f.id), idx: -1, hold: 0 }, stubLabels: [] };
+    return { f, path, total, stepT, segs, start: 0, count: 0, off, run: { t: hash01(f.id), idx: -1, hold: 0 }, stubLabels: [], dirty: false };
   });
   // Idle flows: every tube merged into one mesh, coloured per vertex, in flow order so the
   // light-up can reveal them one after another with a single draw range.
@@ -234,21 +247,39 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       r.tube = new THREE.Mesh(new THREE.TubeGeometry(r.path, r.segs, 0.055, 6, false), new THREE.MeshBasicMaterial({ color: r.f.color, transparent: true, opacity: 0, depthWrite: false }));
       scene.add(r.tube);
     }
-    if (!r.stubs) {
-      r.stubs = new THREE.Group();
-      r.f.branches.forEach((b, bi) => {
-        const from = un[r.f.steps[b.at].unit.index].pos.clone().add(r.off);
+    if (!r.stubs) buildStubs(r);
+  }
+  const stubLineMat = new THREE.LineDashedMaterial({ color: 0x9aa3b5, dashSize: 0.16, gapSize: 0.12, transparent: true, opacity: 0.8 });
+  const stubEndGeo = new THREE.SphereGeometry(0.11, 10, 8), stubEndMat = new THREE.MeshBasicMaterial({ color: 0x8a93a8 });
+  // Branches not taken: a dashed stub off the step they leave from. On the slabs they fan out
+  // around the unit; in the Focus view they drop away to the right of the column.
+  function buildStubs(r: FR) {
+    const visible = r.stubs?.visible ?? false;
+    if (r.stubs) { scene.remove(r.stubs); r.stubs.children.forEach(o => { if (o instanceof THREE.Line) o.geometry.dispose(); }); }
+    r.stubs = new THREE.Group(); r.stubLabels = [];
+    const inFocus = !!FX && FX.r === r;
+    r.f.branches.forEach((b, bi) => {
+      const from = un[r.f.steps[b.at].unit.index].show.clone().add(r.off);
+      let to: THREE.Vector3;
+      if (inFocus) to = from.clone().add(new THREE.Vector3(1.5 + bi * 0.6, -0.95 - bi * 0.35, 0.4));
+      else {
         const a = 0.9 + bi * 2.2 + r.f.index * 0.8, dir = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
-        const to = from.clone().addScaledVector(dir, 1.9); to.y += 0.7;
-        const mid = from.clone().lerp(to, 0.5); mid.y += 0.5;
-        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(from, mid, to).getPoints(16)),
-          new THREE.LineDashedMaterial({ color: 0x9aa3b5, dashSize: 0.16, gapSize: 0.12, transparent: true, opacity: 0.8 }));
-        line.computeLineDistances(); r.stubs!.add(line);
-        const end = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshBasicMaterial({ color: 0x8a93a8 })); end.position.copy(to); r.stubs!.add(end);
-        r.stubLabels.push({ text: b.label, pos: to.clone().add(new THREE.Vector3(0, 0.35, 0)), origin: b.at });
-      });
-      r.stubs.visible = false; scene.add(r.stubs);
-    }
+        to = from.clone().addScaledVector(dir, 1.9); to.y += 0.7;
+      }
+      const mid = from.clone().lerp(to, 0.5); mid.y += inFocus ? 0.15 : 0.5;
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(from, mid, to).getPoints(16)), stubLineMat);
+      line.computeLineDistances(); r.stubs!.add(line);
+      const end = new THREE.Mesh(stubEndGeo, stubEndMat); end.position.copy(to); r.stubs!.add(end);
+      r.stubLabels.push({ text: b.label, pos: inFocus ? to.clone() : to.clone().add(new THREE.Vector3(0, 0.35, 0)), origin: b.at });
+    });
+    r.stubs.visible = visible; scene.add(r.stubs);
+  }
+  function rebuildPath(r: FR) {
+    r.dirty = false;
+    const b = buildPath(pathPoints(r.f, r.off));
+    r.path = b.path; r.total = b.total; r.stepT = b.stepT;
+    if (r.tube) { r.tube.geometry.dispose(); r.tube.geometry = new THREE.TubeGeometry(r.path, r.segs, 0.055, 6, false); }
+    if (r.stubs) buildStubs(r);
   }
 
   // ---------- effect rings ----------
@@ -257,13 +288,22 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   function spawnRing(pos: THREE.Vector3, strength: number, eff: Effect) {
     if (reduced || rings.length >= MAX_RINGS) return;
     const mm = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: eff === 'db-read' ? 0xffc48a : 0xff7a4d, transparent: true, opacity: strength, depthWrite: false, side: THREE.DoubleSide }));
+    if (fe > 0.5) mm.rotation.x = Math.PI / 2; // the Focus view is seen from the front: face the camera
     mm.position.copy(pos); mm.scale.setScalar(NS); scene.add(mm); rings.push({ m: mm, t: 0, s: strength });
   }
 
   // ---------- state ----------
   let sel: FR | null = null, gaps = false, view: View = '3d', hovered: UN | null = null, tween: null | { fp: THREE.Vector3; tp: THREE.Vector3; ft: THREE.Vector3; tt: THREE.Vector3; t: number; d: number } = null;
   let userMoved = false;
-  const lu = { active: false, fi: 0, p: 0, pause: 0, lit: new Set<number>() };
+  // The Focus view: the selected flow alone, its units pulled off the slabs into a column, one
+  // row per unit in the order the flow first reaches it, one lane per layer. The slabs and every
+  // other unit fade away (fe: 0 = the stack, 1 = the column).
+  interface FocusLayout {
+    r: FR; at: Map<number, THREE.Vector3>; rows: Map<number, number[]>; // unit index → its place, its step numbers
+    lanes: { name: string; x: number }[]; top: number; bottom: number; width: number; center: THREE.Vector3;
+  }
+  let focus = false, fe = 0, FX: FocusLayout | null = null;
+  const lu ={ active: false, fi: 0, p: 0, pause: 0, lit: new Set<number>() };
   const PER_FLOW = FL.length <= 8 ? 2.3 : Math.max(0.2, 18 / FL.length);
   const BETWEEN = FL.length <= 8 ? 0.3 : 0.03;
   const total = m.units.length;
@@ -298,13 +338,89 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     const dist = Math.max(tuned, fit * 1.1 + 2);
     return { pos: TARGET.clone().addScaledVector(dir, dist), target: TARGET.clone() };
   }
+  function moveCamera(p: { pos: THREE.Vector3; target: THREE.Vector3 }, instant: boolean) {
+    if (instant || reduced) { camera.position.copy(p.pos); controls.target.copy(p.target); tween = null; return; }
+    tween = { fp: camera.position.clone(), tp: p.pos, ft: controls.target.clone(), tt: p.target, t: 0, d: 1.2 };
+  }
   function goView(v: View, instant = false) {
     view = v;
     document.querySelectorAll<HTMLButtonElement>('.seg button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
-    const p = presetFor(v);
     controls.autoRotate = v === '3d' && !reduced && !userMoved;
-    if (instant || reduced) { camera.position.copy(p.pos); controls.target.copy(p.target); tween = null; return; }
-    tween = { fp: camera.position.clone(), tp: p.pos, ft: controls.target.clone(), tt: p.target, t: 0, d: 1.2 };
+    moveCamera(presetFor(v), instant);
+  }
+  // A phone, or a tall narrow window: the Focus view keeps its labels on one side.
+  const narrowScreen = () => innerWidth < 640 || innerWidth / innerHeight < 0.8;
+  function focusLayout(r: FR): FocusLayout {
+    const narrow = narrowScreen();
+    const laneGap = narrow ? 1.7 : 3.8, rowGap = 2.1;
+    const order: number[] = [], rows = new Map<number, number[]>();
+    r.f.steps.forEach((s, i) => { const k = s.unit.index; if (!rows.has(k)) { rows.set(k, []); order.push(k); } rows.get(k)!.push(i); });
+    const laneOf = (k: number) => un[k].u.layer ?? '~ext';
+    const used = new Set(order.map(laneOf));
+    const ids = [...L.layers.map(l => l.id).filter(id => used.has(id)), ...(used.has('~ext') ? ['~ext'] : [])];
+    const n = ids.length, R = order.length, cx = TARGET.x, cy = TARGET.y;
+    // Narrow lanes get short names: UI, API, SVC, DATA, EXT.
+    const name = (id: string) => id === '~ext' ? (narrow ? 'Ext' : 'External') : narrow ? id.slice(0, 4) : L.layers.find(l => l.id === id)!.name;
+    const lanes = ids.map((id, k) => ({ name: name(id), x: cx + (k - (n - 1) / 2) * laneGap }));
+    const at = new Map<number, THREE.Vector3>();
+    order.forEach((k, row) => at.set(k, new THREE.Vector3(lanes[ids.indexOf(laneOf(k))].x, cy + ((R - 1) / 2 - row) * rowGap, 0)));
+    const half = (R - 1) / 2 * rowGap;
+    return { r, at, rows, lanes, top: cy + half, bottom: cy - half, width: (n - 1) * laneGap, center: new THREE.Vector3(cx, cy, 0) };
+  }
+  // Straight on, a little above, in the clear band between the header and the controls at the
+  // bottom. Labels are HTML of a fixed pixel size, so the room kept for them is in pixels: both
+  // sides of the lanes on a wide screen, the right-hand side on a narrow one (lanes on the left).
+  function focusPreset(F: FocusLayout) {
+    const t = Math.tan((camera.fov * Math.PI / 180) / 2), narrow = narrowScreen();
+    const top = ($('header')?.getBoundingClientRect().bottom ?? 0) - 6;
+    const bottom = $('#sheet')?.getBoundingClientRect().top ?? innerHeight;
+    const band = Math.max(0.35, (bottom - top) / innerHeight);
+    const h = (F.top + 1.5 - F.bottom) / 2 + 1.2;
+    const room = Math.max(60, innerWidth - (narrow ? 230 : 2 * 190)); // px left for the lanes
+    let dist = h / (t * band);
+    if (F.width > 0) dist = Math.max(dist, F.width * (innerHeight / 2) / (t * room));
+    dist *= 1.04;
+    const ppu = (innerHeight / 2) / (t * dist); // screen px per world unit at the column
+    const lanesAt = narrow ? 30 + F.width * ppu / 2 : innerWidth / 2;
+    const target = F.center.clone().add(new THREE.Vector3(
+      (innerWidth / 2 - lanesAt) / ppu,
+      0.75 - ((innerHeight / 2 - (top + bottom) / 2) / (innerHeight / 2)) * t * dist, // the band's middle
+      0));
+    const dir = new THREE.Vector3(0, 0.08, 1).normalize();
+    return { pos: target.clone().addScaledVector(dir, dist), target };
+  }
+  // Faint guides down each lane of the Focus view.
+  const laneMat = new THREE.LineBasicMaterial({ color: 0x8aa6ff, transparent: true, opacity: 0, depthWrite: false });
+  let laneLines: THREE.LineSegments | null = null;
+  function buildLanes() {
+    if (laneLines) { scene.remove(laneLines); laneLines.geometry.dispose(); laneLines = null; }
+    if (!FX) return;
+    const p: number[] = [];
+    for (const l of FX.lanes) p.push(l.x, FX.top + 1.1, -0.3, l.x, FX.bottom - 1.1, -0.3);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+    laneLines = new THREE.LineSegments(g, laneMat); scene.add(laneLines);
+  }
+  // Into or out of the Focus view (or onto another flow while in it): give every unit its new
+  // place and let the frame loop carry it there, with the camera on the same 1.2 s ease.
+  function setFocus(on: boolean, instant = false) {
+    const was = FX;
+    focus = on && !!sel;
+    FX = focus ? focusLayout(sel!) : null;
+    for (const n of un) {
+      const to = FX?.at.get(n.u.index) ?? n.pos;
+      if (to.equals(n.to)) continue;
+      n.from.copy(n.show); n.to.copy(to); n.mt = 0;
+      if (instant || reduced) { n.mt = 1; n.show.copy(to); }
+      for (const f of n.u.flows) FL[f.index].dirty = true;
+    }
+    buildLanes();
+    if (sel) rebuildPath(sel);
+    $('#btnFocus').classList.toggle('on', focus);
+    if (FX) {
+      document.querySelectorAll<HTMLButtonElement>('.seg button').forEach(b => b.classList.remove('on'));
+      controls.autoRotate = false;
+      moveCamera(focusPreset(FX), instant);
+    } else if (was) goView(view, instant);
   }
   function setFov() { camera.fov = innerWidth / innerHeight < 0.8 ? 58 : 45; camera.updateProjectionMatrix(); }
   setFov();
@@ -343,8 +459,11 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   }
   function updateLabels() {
     frameNo++;
-    for (const l of L.layers) place(label('layer:' + l.id, l.name, 'layer'), lp.set(-PW / 2, l.y, PD / 2), 'translate(6px,-140%)');
-    if (ext.length && view !== 'top') place(label('layer:ext', 'external', 'layer'), lp.set(L.extX, L.extY + 1.9, -0.2), 'translate(-50%,-50%)');
+    if (FX && fe > 0.5) for (const l of FX.lanes) place(label('lane:' + l.name, l.name, 'layer'), lp.set(l.x, FX.top + 1.5, 0), 'translate(-50%,-50%)');
+    else if (fe < 0.5) {
+      for (const l of L.layers) place(label('layer:' + l.id, l.name, 'layer'), lp.set(-PW / 2, l.y, PD / 2), 'translate(6px,-140%)');
+      if (ext.length && view !== 'top') place(label('layer:ext', 'external', 'layer'), lp.set(L.extX, L.extY + 1.9, -0.2), 'translate(-50%,-50%)');
+    }
     if (!sel && !lu.active && !gaps && view !== 'side' && L.districts.length <= 60)
       for (const d of L.districts) place(label('d:' + d.layer + d.id, d.name, 'district'), lp.set(d.x + 0.35, d.y + 0.05, d.z + d.d - 0.35), 'translate(0,-50%)');
     // Units: pick the most important ones.
@@ -352,8 +471,10 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     const want: [number, number][] = []; // [priority, unit index]
     for (const n of un) {
       const u = n.u;
+      if (FX && !FX.at.has(u.index)) continue;
       let p = 0;
       if (hovered === n) p = 100;
+      else if (FX) p = cur === u.index ? 90 : 60;
       else if (cur === u.index) p = 90;
       else if (n.labelT > 0) p = 70;
       else if (lu.active) p = 0;
@@ -366,15 +487,28 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       if (p > 0) want.push([p, u.index]);
     }
     want.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
-    for (const [, i] of want.slice(0, innerWidth < 560 ? Math.round(MAX_LABELS * 0.4) : MAX_LABELS)) { // fewer on a phone
+    for (const [, i] of want.slice(0, innerWidth < 560 && !FX ? Math.round(MAX_LABELS * 0.4) : MAX_LABELS)) { // fewer on a phone, except one flow in Focus
       const n = un[i];
       const l = label('u:' + i, n.u.name, n.u.kind === 'external' ? 'ext' : 'node');
       const isCur = cur === i, g = gaps && !n.u.flows.length && !lu.active;
       l.el.classList.toggle('gap', g); l.el.classList.toggle('cur', isCur);
       l.el.style.borderColor = isCur && sel ? sel.f.color : '';
-      place(l, lp.copy(n.pos).add(sv.set(0, (n.u.kind === 'code' ? 0.55 : 0.75) * NS, 0)), 'translate(-50%,-100%)');
+      if (FX && fe > 0.3) place(l, n.show, `translate(${n.u.kind === 'code' ? 16 : 30}px,${narrowScreen() ? '2px' : '-50%'})`);
+      else place(l, lp.copy(n.show).add(sv.set(0, (n.u.kind === 'code' ? 0.55 : 0.75) * NS, 0)), 'translate(-50%,-100%)');
     }
-    if (sel && !lu.active) for (const s of sel.stubLabels) if (reduced || sel.run.hold > 0 || sel.run.idx >= s.origin) place(label('s:' + sel.f.id + s.text + s.origin, s.text, 'stub'), s.pos, 'translate(-50%,-100%)');
+    // In the Focus view each row also says what happens there: "3. Snapshot the timeline".
+    // Narrow screens have no room for floating branch labels, so the row names its branches.
+    const narrow = narrowScreen();
+    if (FX && fe > 0.3) for (const [k, idx] of FX.rows) {
+      const f = FX.r.f;
+      const text = idx.map(i => `${i + 1}. ${f.steps[i].label}` + (narrow ? f.branches.filter(b => b.at === i).map(b => `  ↳ ${b.label}`).join('') : '')).join(' · ');
+      const l = label('fs:' + f.id + ':' + k + (narrow ? 'n' : ''), text, 'steplbl');
+      l.el.classList.toggle('cur', cur === k);
+      const gap = un[k].u.kind === 'code' ? 16 : 30;
+      // Wide: left of the unit. Narrow: right of it, above its name.
+      place(l, un[k].show, narrowScreen() ? `translate(${gap}px,-100%)` : `translate(-100%,-50%) translateX(-${gap}px)`);
+    }
+    if (sel && !lu.active && !(FX && narrow)) for (const s of sel.stubLabels) if (reduced || sel.run.hold > 0 || sel.run.idx >= s.origin) place(label('s:' + sel.f.id + s.text + s.origin, s.text, 'stub'), s.pos, FX ? 'translate(10px,-50%)' : 'translate(-50%,-100%)');
     for (const [key, l] of pool) {
       if (l.seen === frameNo) continue;
       if (l.on) { l.on = false; l.el.classList.remove('on'); l.seen = frameNo; }
@@ -396,6 +530,9 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     FL.forEach((r, i) => flowChip[i].classList.toggle('on', sel === r));
     $('#btnGaps').classList.toggle('on', gaps);
     $('#btnLight').classList.toggle('on', lu.active);
+    const bf = $<HTMLButtonElement>('#btnFocus');
+    bf.disabled = !sel; bf.classList.toggle('on', !!FX);
+    bf.title = sel ? (FX ? 'Back to the layers' : 'Lay this flow out on its own, top to bottom') : 'Pick a flow to focus on';
   }
   function setHash(h: string) {
     try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch { /* sandboxed */ }
@@ -417,9 +554,17 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       if (reduced) staticCaption(r);
       flowChip[r.f.index].scrollIntoView({ block: 'nearest', inline: 'nearest' });
     } else cap.innerHTML = `<span class="st">All documented flows${reduced ? '' : ' running at once'}. Tap a flow to follow it.</span>`;
-    if (!fromHash) setHash(r ? 'flow-' + r.f.id : '');
+    if (focus) setFocus(!!r); // another flow slides into the column, or the column goes back
+    if (!fromHash) setHash(r ? (FX ? 'focus-' : 'flow-') + r.f.id : '');
     refreshButtons();
   }
+  function toggleFocus(on: boolean, fromHash = false) {
+    if (!sel) return;
+    setFocus(on);
+    if (!fromHash) setHash((FX ? 'focus-' : 'flow-') + sel.f.id);
+    refreshButtons();
+  }
+  $('#btnFocus').onclick = () => toggleFocus(!focus);
   function setCaption(r: FR, i: number) {
     const s = r.f.steps[i];
     cap.innerHTML = `<i class="dot" style="background:${esc(r.f.color)}"></i>${flowName(r.f)}<span class="st">${i + 1}/${r.f.steps.length}</span><span>${esc(s.label)}</span>` +
@@ -437,6 +582,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       : `<span class="st">Every unit sits on a documented flow.</span>`;
   }
   function setGaps(on: boolean, fromHash = false) {
+    if (focus) setFocus(false);
     stopLightUp(); gaps = on; sel = null; hideCard();
     if (gaps) gapsCaption(); else { selectFlow(null, fromHash); return; }
     if (!fromHash) setHash('gaps');
@@ -444,7 +590,10 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   }
   $('#btnGaps').onclick = () => setGaps(!gaps);
   $('#btnLight').onclick = () => startLightUp();
-  document.querySelectorAll<HTMLButtonElement>('.seg button').forEach(b => b.onclick = () => { goView(b.dataset.view as View); });
+  document.querySelectorAll<HTMLButtonElement>('.seg button').forEach(b => b.onclick = () => {
+    if (!focus) { goView(b.dataset.view as View); return; }
+    view = b.dataset.view as View; toggleFocus(false); // leaving the Focus view lands on this camera
+  });
   function setCoverage(r: number) { const p = Math.round(r * 100); $('#covTxt').textContent = p + '%'; $('#covBar').style.width = p + '%'; }
   function hideCard() { card.classList.remove('on'); }
   function showCard(n: UN) {
@@ -471,6 +620,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
 
   // ---------- light-up ----------
   function startLightUp() {
+    if (focus) setFocus(false);
     sel = null; gaps = false; hideCard(); setHash('');
     if (reduced) { // no animation: show where it ends
       un.forEach(n => n.color.copy(n.u.kind === 'code' ? C.code : C.eff));
@@ -518,12 +668,12 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   function arrive(r: FR, i: number) {
     const s = r.f.steps[i], n = un[s.unit.index];
     n.pop = Math.max(n.pop, r === sel ? 1 : 0.6);
-    if (s.effect) spawnRing(n.pos, r === sel ? 1 : 0.45, s.effect);
+    if (s.effect) spawnRing(n.show, r === sel ? 1 : 0.45, s.effect);
     if (r === sel) setCaption(r, i);
   }
   let tubeOpacity = 0;
   function updateFlows(dt: number) {
-    const target = lu.active ? 0.9 : gaps ? 0.1 : sel ? 0.05 : 0.4;
+    const target = lu.active ? 0.9 : gaps ? 0.1 : sel ? 0.05 * (1 - fe) : 0.4;
     tubeOpacity += (target - tubeOpacity) * Math.min(1, dt * 5);
     tubes.material.opacity = tubeOpacity;
     for (const r of FL) {
@@ -555,6 +705,33 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     col.needsUpdate = true;
     heads.instanceMatrix.needsUpdate = true;
   }
+  const ease = (t: number) => t >= 1 ? 1 : t < 0.5 ? 4 * t ** 3 : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  // Units on their way between the slabs and the Focus column, the fade of everything the
+  // Focus view leaves out, and the paths that follow the moving units.
+  function updateMoves(dt: number) {
+    let moving = 0, hitDirty = false;
+    fe += ((FX ? 1 : 0) - fe) * (reduced ? 1 : Math.min(1, dt * 3.2));
+    for (const n of un) {
+      const tv = FX ? (FX.at.has(n.u.index) ? 1 : 0) : 1;
+      if (n.mt >= 1 && n.vis === tv) continue;
+      if (n.mt < 1) {
+        n.mt = Math.min(1, n.mt + dt / 1.2);
+        n.show.lerpVectors(n.from, n.to, ease(n.mt));
+        moving++;
+        for (const f of n.u.flows) FL[f.index].dirty = true;
+      }
+      n.vis = reduced || Math.abs(tv - n.vis) < 0.01 ? tv : n.vis + (tv - n.vis) * Math.min(1, dt * 4);
+      hit.setMatrixAt(n.u.index, mtx.compose(n.show, q.identity(), sv.setScalar(n.vis > 0.5 ? 1 : 0)));
+      hitDirty = true;
+    }
+    if (hitDirty) { hit.instanceMatrix.needsUpdate = true; hit.computeBoundingSphere(); }
+    // The selected flow follows its units every frame; the rest catch up once they've landed.
+    for (const r of FL) if (r.dirty && (r === sel || !moving)) rebuildPath(r);
+    const k = 1 - fe;
+    slabMat.opacity = 0.055 * k; edgeMat.opacity = 0.55 * k; gridMat.opacity = 0.07 * k;
+    districtMat.opacity = 0.28 * k; sheetRingMat.opacity = 0.22 * k;
+    laneMat.opacity = 0.16 * fe;
+  }
   function updateNodes(dt: number, time: number) {
     const k = Math.min(1, dt * 6);
     const selF = sel?.f;
@@ -569,16 +746,16 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       n.color.lerp(tgt, k);
       n.mesh.setColorAt(n.slot, n.color);
       n.pop = Math.max(0, n.pop - dt * 2.2); n.labelT = Math.max(0, n.labelT - dt);
-      let s = n.base * NS * (1 + 0.55 * n.pop) * (hovered === n ? 1.25 : 1);
+      let s = n.base * NS * (1 + 0.55 * n.pop) * (hovered === n ? 1.25 : 1) * n.vis;
       if (gaps && !covered && !lu.active && !reduced) s *= 1 + 0.12 * Math.sin(time * 4);
       q.setFromEuler(eul.set(0, n.spin && !reduced ? time * 0.6 : 0, 0));
-      n.mesh.setMatrixAt(n.slot, mtx.compose(n.pos, q, sv.setScalar(s)));
+      n.mesh.setMatrixAt(n.slot, mtx.compose(n.show, q, sv.setScalar(s)));
     }
     for (const mesh of kindMesh.values()) { mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true; }
     if (gates) {
       ext.forEach((u, i) => {
         q.setFromEuler(eul.set(reduced ? 0 : Math.sin(time * 0.3) * 0.4, reduced ? 0 : time * 0.5, 0));
-        gates.setMatrixAt(i, mtx.compose(un[u.index].pos, q, sv.setScalar(NS)));
+        gates.setMatrixAt(i, mtx.compose(un[u.index].show, q, sv.setScalar(NS * un[u.index].vis)));
       });
       gates.instanceMatrix.needsUpdate = true;
     }
@@ -596,12 +773,13 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     const dt = Math.min(clock.getDelta(), 0.05), time = clock.elapsedTime;
     if (tween) {
       tween.t += dt / tween.d;
-      const t = tween.t, e = t >= 1 ? 1 : t < 0.5 ? 4 * t ** 3 : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      const e = ease(tween.t);
       camera.position.lerpVectors(tween.fp, tween.tp, e); controls.target.lerpVectors(tween.ft, tween.tt, e);
       if (tween.t >= 1) tween = null;
     }
     controls.update();
     updateLightUp(dt);
+    updateMoves(dt);
     updateFlows(dt);
     updateNodes(dt, time); updateRings(dt);
     if (composer) composer.render(); else renderer.render(scene, camera);
@@ -637,13 +815,18 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   addEventListener('resize', () => {
     renderer.setSize(innerWidth, innerHeight); setFov(); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
     composer?.setSize(innerWidth, innerHeight);
-    if (!userMoved) goView(view, true);
+    if (FX) setFocus(true, true); // lanes are narrower in portrait
+    else if (!userMoved) goView(view, true);
   });
 
-  // ---------- deep links: #flow-<id>, #gaps, #lightup ----------
+  // ---------- deep links: #flow-<id>, #focus-<id>, #gaps, #lightup ----------
   function fromHash(): boolean {
     const h = decodeURIComponent(location.hash.replace(/^#/, ''));
-    if (h.startsWith('flow-')) { const r = FL.find(r => r.f.id === h.slice(5)); if (r) { selectFlow(r, true); return true; } }
+    const fm = h.match(/^(flow|focus)-(.+)$/);
+    if (fm) {
+      const r = FL.find(r => r.f.id === fm[2]);
+      if (r) { selectFlow(r, true); if ((fm[1] === 'focus') !== focus) toggleFocus(fm[1] === 'focus', true); return true; }
+    }
     if (h === 'gaps') { setGaps(true, true); return true; }
     if (h === 'all') { selectFlow(null, true); return true; }
     if (h === 'lightup') { startLightUp(); return true; }
@@ -665,8 +848,8 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   // For tests, scripted recordings and debugging from the console.
   (window as any).__flowview = {
     selectFlow: (id: string | null) => selectFlow(id ? FL.find(r => r.f.id === id) ?? null : null),
-    setGaps, startLightUp, goView, showCard: (id: string) => { const u = m.byId.get(id); if (u) showCard(un[u.index]); },
-    state: () => ({ mode: lu.active ? 'lightup' : gaps ? 'gaps' : sel ? 'flow' : 'all', flow: sel?.f.id ?? null, view, covered: m.covered, total, labels: [...pool.values()].filter(l => l.on).length }),
+    setGaps, startLightUp, goView, focus: (on = true) => toggleFocus(on), showCard: (id: string) => { const u = m.byId.get(id); if (u) showCard(un[u.index]); },
+    state: () => ({ mode: lu.active ? 'lightup' : gaps ? 'gaps' : FX ? 'focus' : sel ? 'flow' : 'all', flow: sel?.f.id ?? null, view, covered: m.covered, total, labels: [...pool.values()].filter(l => l.on).length }),
     layout: L, bloom: () => bloomPass, renderer,
   };
   return { dispose() { cancelAnimationFrame(raf); renderer.dispose(); } };

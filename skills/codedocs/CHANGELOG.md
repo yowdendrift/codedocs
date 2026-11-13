@@ -15,8 +15,11 @@ Each entry says what changed and whether it affects existing docs:
   functions it passes, with side effects in coral and branches not taken as dashed stubs. Modes:
   a light-up tour on first visit, all flows, one flow (step by step, with a caption), and gaps
   (code on no documented flow, in red, with the coverage figure). Click a unit for a card that
-  opens its code in the code panel. Camera presets 3D / Side / Top; deep links `#flow-<id>` and
-  `#gaps`; touch, reduced motion, and an SVG side view where WebGL isn't available. It opens from
+  opens its code in the code panel. **Focus** lifts the selected flow out of the layers into a
+  column of its own, one row per unit in step order and one lane per layer, with each step's
+  label beside it; the units fly between the two views and the layers fade. Camera presets
+  3D / Side / Top; deep links `#flow-<id>`, `#focus-<id>` and `#gaps`; touch, reduced motion,
+  and an SVG side view where WebGL isn't available. It opens from
   a **Flow view** entry in the sidebar, from a flow page, or as `flowview.html` in the docs
   folder, which works opened straight from disk. Static exports include it.
 - **`codedocs flows`** builds the graph behind it (`flowgraph.json`, schema in

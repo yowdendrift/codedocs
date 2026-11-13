@@ -102,6 +102,19 @@ spheres for touch, the unit card and the deep-link hash. `flowview/src/bloom.ts#
 puts back the glow of the three.js version the mockup was made in. Without WebGL,
 `flowview/src/fallback.ts#renderFallback` draws a static SVG side view.
 
+### Focus
+
+The Focus view lays one flow out on its own, top to bottom. Every unit has a home on its slab
+(`pos`) and a place where it's drawn (`show`); `setFocus` gives the flow's units a place in the
+column (`focusLayout`: one row per unit in the order the flow first reaches it, one lane per
+layer it crosses) and the frame loop eases them there over 1.2 s, on the same curve as the
+camera. Everything else fades: other units shrink to nothing and stop being pickable, the slabs
+and district outlines go transparent. The flow's tube and branch stubs are rebuilt from where
+its units are drawn every frame they move, so the line of light travels with them; other flows
+sharing those units catch up once the move ends. The camera framing (`focusPreset`) works in
+pixels, because labels are HTML of a fixed size: room for labels both sides on a wide screen,
+and on a narrow one the lanes go to the left with every label to their right.
+
 ## Interfaces
 
 - Reads flow pages, component frontmatter, `.codedocs/layers.yml` and the repo's files; writes

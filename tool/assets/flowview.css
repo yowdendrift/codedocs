@@ -42,6 +42,10 @@ button{font:500 13px var(--sans);color:var(--ink);background:rgba(20,26,44,.9);b
 button:hover{border-color:rgba(160,180,255,.45)}
 button:focus-visible,a:focus-visible{outline:2px solid #9fb4ff;outline-offset:2px}
 button.on{background:rgba(120,145,255,.22);border-color:rgba(160,180,255,.7)}
+button:disabled{opacity:.4;cursor:default}
+button:disabled:hover{border-color:var(--line)}
+.lbl.steplbl{background:none;border:none;font:500 12px var(--sans);color:#aebbe0}
+.lbl.steplbl.cur{color:#fff}
 button .sw{width:16px;height:3px;border-radius:2px;display:inline-block}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-left:auto;flex:none}
 .seg button{border:none;border-radius:0;padding:8px 11px;background:rgba(20,26,44,.9)}
