@@ -59,7 +59,7 @@ Extra keys per kind:
 
 | kind | extra keys |
 |---|---|
-| component | `paths: [src/render/**, src/workers/encode*.ts]`: globs for the code this component owns. Required; the tool uses them for change mapping and coverage. A file should belong to exactly one component. |
+| component | `paths: [src/render/**, src/workers/encode*.ts]`: globs for the code this component owns. Required; the tool uses them for change mapping and coverage. A file should belong to exactly one component. Optional `layer: svc`: the flow view's layer for all its code, when `.codedocs/layers.yml` doesn't say. |
 | flow | `components: [ui, timeline, render-pipeline]`: in the order the flow visits them |
 | concern | `components: [...]`: where the pattern applies |
 | topic | `components: [...]`: components the subject spans; `audience: admin`, `developer` or `both` |
@@ -114,6 +114,27 @@ Use ```` ```mermaid ```` blocks. Keep each diagram small enough to read without 
 
 A diagram supports the prose; it never replaces it. Label edges with verbs ("reads", "posts job to").
 Keep labels plain: no parentheses, quotes or semicolons inside unquoted node labels.
+
+## Flow graph blocks
+
+A flow page may carry one ```` ```flowgraph ```` block, under `## Flow graph` after "Step by
+step". It is what the 3D flow view draws (`/codedocs flows` writes it; see `flows.md`). One hop
+per line, in order:
+
+```
+unit | label                 a step
+unit | label | effect        a step with a side effect
+branch | label               a path not taken, leaving from the step above
+branch | label | flow-id     ...that is another documented flow
+id: signup                   optional header lines, before the steps: id, name, color (#rrggbb)
+// a comment
+```
+
+A unit is a code ref in backticks (`` `src/services/users.ts#UserService.create` ``), or one of
+`route POST /signup`, `store users` (or `store postgres/users`), `queue <name>`,
+`cache <name>`, `file <name>`, `external <name>`. Effects: `db-read`, `db-write`, `external`,
+`disk-write`, `queue`, `cache`. The code refs are checked by `codedocs check` like any other.
+The docs viewer shows the block as a numbered list with a link into the flow view.
 
 ## Page templates
 

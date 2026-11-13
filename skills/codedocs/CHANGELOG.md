@@ -10,6 +10,27 @@ Each entry says what changed and whether it affects existing docs:
 - **theme**: new variables in the default theme.css; `/codedocs upgrade` adds them to existing themes
 
 ## Unreleased
+- **viewer: the flow view.** A 3D picture of the code as stacked glass layers (UI, API,
+  services, data, or the repo's own), each documented flow drawn as a line of light through the
+  functions it passes, with side effects in coral and branches not taken as dashed stubs. Modes:
+  a light-up tour on first visit, all flows, one flow (step by step, with a caption), and gaps
+  (code on no documented flow, in red, with the coverage figure). Click a unit for a card that
+  opens its code in the code panel. Camera presets 3D / Side / Top; deep links `#flow-<id>` and
+  `#gaps`; touch, reduced motion, and an SVG side view where WebGL isn't available. It opens from
+  a **Flow view** entry in the sidebar, from a flow page, or as `flowview.html` in the docs
+  folder, which works opened straight from disk. Static exports include it.
+- **`codedocs flows`** builds the graph behind it (`flowgraph.json`, schema in
+  `schema/flowgraph.v1.json`) from `flowgraph` blocks on flow pages, the repo's functions and
+  route handlers, and layers from `.codedocs/layers.yml`, a component's `layer`, or folder and
+  file names. It validates before writing and writes nothing if a hop doesn't resolve.
+  `flows --scan` lists layers, unclassified files, routes and other entry points, side-effect
+  candidates, stale blocks and uncovered code, for the agent. `serve` and `export` build the
+  graph themselves; `check` checks the blocks.
+- **content model**: flow pages may carry a ```` ```flowgraph ```` block (one hop per line:
+  `unit | label | effect`, `branch | label`), shown in the docs viewer as a numbered list.
+  Components may set `layer`. Both optional; existing docs are unaffected.
+- **guidance**: new `/codedocs flows` guide; `update` re-traces stale blocks. Additive, so the
+  page-guidance version is unchanged and no pages show as outdated.
 - **viewer**: the mind map now uses the theme's colours. In dark mode its headings ("Components",
   "Flows"…) and the "via …" lines were dark grey on a dark background; markmap's own defaults
   were overriding the theme.

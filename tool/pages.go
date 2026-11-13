@@ -154,7 +154,8 @@ func stripCode(body string) string {
 	fence, start := "", -1
 	for i, l := range ls {
 		if fence == "" {
-			if strings.HasPrefix(l, "```") || strings.HasPrefix(l, "~~~") {
+			// flowgraph blocks hold code refs that must be checked like any other.
+			if (strings.HasPrefix(l, "```") || strings.HasPrefix(l, "~~~")) && !isFlowFence(l) {
 				fence, start = l[:3], i
 			}
 			continue
@@ -382,6 +383,7 @@ type Entry struct {
 	Decisions     *[]string `json:"decisions,omitempty"`
 	Components    *[]string `json:"components,omitempty"`
 	Topics        *[]string `json:"topics,omitempty"`
+	Graph         string    `json:"graph,omitempty"` // a flow page with a flowgraph block: its flow's id in the flow view
 }
 
 type Manifest struct {
@@ -394,8 +396,9 @@ type Manifest struct {
 	LastSynced   *string           `json:"last_synced"`
 	Pages        []*Entry          `json:"pages"`
 	Symbols      map[string]int    `json:"symbols"`
-	Spans        map[string][2]int `json:"spans,omitempty"`  // "file#Symbol" or "file:N" -> [from, to] lines of the definition or block
-	Static       bool              `json:"static,omitempty"` // a codedocs export: the code panel reads code/
+	Spans        map[string][2]int `json:"spans,omitempty"`     // "file#Symbol" or "file:N" -> [from, to] lines of the definition or block
+	Static       bool              `json:"static,omitempty"`    // a codedocs export: the code panel reads code/
+	Flowgraph    bool              `json:"flowgraph,omitempty"` // there's a flow graph: the viewer offers the flow view
 }
 
 var kindOrder = []string{"overview", "map", "topic", "component", "flow", "concern", "glossary", "decision", "gotchas", "change", "page"}
@@ -494,6 +497,11 @@ func buildManifest(docsDir string, cfg *Config) *Manifest {
 			}
 			e.Flows, e.Concerns, e.Decisions, e.Topics = &r.flows, &r.concerns, &r.decisions, &r.topics
 		}
+		if p.Kind == "flow" {
+			if bs := flowBlocks(p); len(bs) > 0 {
+				e.Graph = graphID("", bs[0].ID)
+			}
+		}
 		if p.Kind == "flow" || p.Kind == "concern" || p.Kind == "decision" || p.Kind == "topic" {
 			ids := []string{}
 			for _, c := range p.list("components") {
@@ -523,8 +531,13 @@ func buildManifest(docsDir string, cfg *Config) *Manifest {
 	if editor == "" {
 		editor = "none"
 	}
+	flowgraph := fileExists(filepath.Join(docsDir, "flowgraph.json"))
+	for _, e := range entries {
+		flowgraph = flowgraph || e.Graph != ""
+	}
 	return &Manifest{
-		Project: cfg.Project, SkillVersion: cfg.SkillVersion, ToolVersion: version, RepoRootAbs: cfg.RepoRootAbs,
+		Flowgraph: flowgraph,
+		Project:   cfg.Project, SkillVersion: cfg.SkillVersion, ToolVersion: version, RepoRootAbs: cfg.RepoRootAbs,
 		Editor: editor, Generated: time.Now().UTC().Format(time.RFC3339), LastSynced: cfg.LastSynced,
 		Pages: entries, Symbols: symbols, Spans: spans,
 	}

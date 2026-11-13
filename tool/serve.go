@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-//go:embed assets/index.html assets/viewer.css assets/theme.css assets/lib/*.gz
+//go:embed assets/index.html assets/viewer.css assets/theme.css assets/flowview.html assets/flowview.css assets/lib/*.gz
 var assets embed.FS
 
 const maxCodeFile = 2 << 20 // 2 MB
@@ -203,6 +203,28 @@ func cmdServe(o options) {
 	mux.HandleFunc("/viewer.css", func(w http.ResponseWriter, r *http.Request) {
 		send(w, "text/css; charset=utf-8", readAsset("viewer.css"))
 	})
+	mux.HandleFunc("/flowview.html", func(w http.ResponseWriter, r *http.Request) {
+		send(w, "text/html; charset=utf-8", readAsset("flowview.html"))
+	})
+	mux.HandleFunc("/flowview.css", func(w http.ResponseWriter, r *http.Request) {
+		send(w, "text/css; charset=utf-8", readAsset("flowview.css"))
+	})
+	// Live flow graph, built from the flow pages on every load (cached a few seconds). Without
+	// flowgraph blocks, a flowgraph.json in the docs folder is served as it is.
+	flowgraph := func(w http.ResponseWriter, r *http.Request, js bool) {
+		if !hasFlowBlocks(loadPages(docsDir)) {
+			serveDocsFile(w, r, docsDir)
+			return
+		}
+		g, _ := liveGraph.get(docsDir)
+		if js {
+			send(w, "text/javascript; charset=utf-8", flowgraphJS(g))
+		} else {
+			send(w, "application/json; charset=utf-8", marshal(g))
+		}
+	}
+	mux.HandleFunc("/flowgraph.json", func(w http.ResponseWriter, r *http.Request) { flowgraph(w, r, false) })
+	mux.HandleFunc("/flowgraph.js", func(w http.ResponseWriter, r *http.Request) { flowgraph(w, r, true) })
 	mux.HandleFunc("/lib/", func(w http.ResponseWriter, r *http.Request) {
 		name := path.Base(r.URL.Path)
 		b, err := assets.ReadFile("assets/lib/" + name + ".gz")
@@ -372,6 +394,8 @@ func serveDocsFile(w http.ResponseWriter, r *http.Request, docsDir string) {
 		ctype = "text/css; charset=utf-8"
 	case ".json":
 		ctype = "application/json; charset=utf-8"
+	case ".js":
+		ctype = "text/javascript; charset=utf-8"
 	}
 	if ctype == "" {
 		ctype = "application/octet-stream"

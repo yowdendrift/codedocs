@@ -57,6 +57,20 @@ the same way: it's plain files.
 calling `/api/info`. From then on `tool/assets/index.html#Code` serves the code panel from GitHub
 and the index, and "Open in editor" becomes "View on GitHub".
 
+## Flow graph
+
+```flowgraph
+`tool/export.go#cmdExport` | Write viewer, docs and manifest | disk-write
+`tool/export.go#exportSource` | Pin the source to a commit
+branch | Not on GitHub: no code panel
+`tool/callers.go#findCallers` | Precompute call sites
+`tool/export.go#exportGraph` | Add the flow graph | disk-write
+external GitHub Pages | Deploy the folder
+`tool/assets/index.html#init` | Open the site: static mode
+`tool/assets/index.html#Code` | Serve the code panel
+external GitHub raw files | Fetch source at the commit
+```
+
 ## When it goes wrong
 
 - Code panel shows 404s: the pinned commit isn't pushed. `export` warns when that's the case.

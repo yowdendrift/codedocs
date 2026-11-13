@@ -77,6 +77,22 @@ broken links and code no component claims; the agent fixes each. `tool/links.go#
 whether the code panel's import links resolve, and the agent adds alias rules if not.
 `tool/cmds.go#cmdMarkSynced` records the commit the docs describe.
 
+## Flow graph
+
+```flowgraph
+`skills/codedocs/SKILL.md` | /codedocs init
+`skills/codedocs/reference/init.md` | Follow the init guide
+`tool/cmds.go#cmdStatus` | Look for existing docs
+branch | Docs exist: offer refresh modes
+`tool/cmds.go#cmdStats` | Map the repo
+`tool/cmds.go#cmdInstallViewer` | Create the docs folder | disk-write
+`tool/cmds.go#cmdManifest` | Build the manifest | disk-write
+`tool/cmds.go#cmdCheck` | Check refs and links
+branch | Issues: fix and check again
+`tool/links.go#cmdLinks` | Check import links
+`tool/cmds.go#cmdMarkSynced` | Record the commit | disk-write
+```
+
 ## When it goes wrong
 
 - `check` keeps failing on a symbol: the ref names something the resolver can't find (see

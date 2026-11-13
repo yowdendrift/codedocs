@@ -67,6 +67,24 @@ import (a folder), lists the package's files.
 `tool/assets/index.html#rankDefinitions` over code/defs.json, a tested copy of the server's
 `tool/defs.go#rankDefinitions`. One match opens directly; several show a list to choose from.
 
+## Flow graph
+
+```flowgraph
+`tool/pages.go#buildManifest` | Build the manifest
+`tool/pages.go#resolveSymbol` | Resolve each ref's line
+`tool/assets/index.html#refHtml` | Render refs as links
+`tool/assets/index.html#showCode` | Click: open the panel
+route /api/file | Fetch the file
+branch | Not in the repo, too big, or binary
+`tool/links.go#linksFor` | Find the import spans
+`tool/assets/index.html#applyLinks` | Link the imports
+`tool/assets/index.html#followLink` | Follow an import
+`tool/assets/index.html#goToDefinition` | Ctrl+click a name
+route /api/definition | Ask for the definition
+`tool/defs.go#findDefinition` | Find and rank matches
+branch | Several matches: choose from a list
+```
+
 ## When it goes wrong
 
 - "Not a source file in this repo": the file is ignored by git, binary, or over 2 MB.

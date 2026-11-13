@@ -1,0 +1,673 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-12T20:00:00Z",
+  "repo": {
+    "name": "sample-app",
+    "commit": "0000000"
+  },
+  "layers": [
+    {
+      "id": "ui",
+      "name": "UI",
+      "order": 0
+    },
+    {
+      "id": "api",
+      "name": "API",
+      "order": 1
+    },
+    {
+      "id": "svc",
+      "name": "Services",
+      "order": 2
+    },
+    {
+      "id": "data",
+      "name": "Data",
+      "order": 3
+    }
+  ],
+  "districts": [
+    {
+      "id": "ui/auth",
+      "layer": "ui",
+      "name": "auth"
+    },
+    {
+      "id": "ui/billing",
+      "layer": "ui",
+      "name": "billing"
+    },
+    {
+      "id": "ui/reports",
+      "layer": "ui",
+      "name": "reports"
+    },
+    {
+      "id": "ui/account",
+      "layer": "ui",
+      "name": "account"
+    },
+    {
+      "id": "ui/shell",
+      "layer": "ui",
+      "name": "shell"
+    },
+    {
+      "id": "api/auth-routes",
+      "layer": "api",
+      "name": "auth routes"
+    },
+    {
+      "id": "api/billing-routes",
+      "layer": "api",
+      "name": "billing routes"
+    },
+    {
+      "id": "api/report-routes",
+      "layer": "api",
+      "name": "report routes"
+    },
+    {
+      "id": "api/account-routes",
+      "layer": "api",
+      "name": "account routes"
+    },
+    {
+      "id": "api/middleware",
+      "layer": "api",
+      "name": "middleware"
+    },
+    {
+      "id": "svc/users",
+      "layer": "svc",
+      "name": "users"
+    },
+    {
+      "id": "svc/auth",
+      "layer": "svc",
+      "name": "auth"
+    },
+    {
+      "id": "svc/billing",
+      "layer": "svc",
+      "name": "billing"
+    },
+    {
+      "id": "svc/messaging",
+      "layer": "svc",
+      "name": "messaging"
+    },
+    {
+      "id": "svc/audit",
+      "layer": "svc",
+      "name": "audit"
+    },
+    {
+      "id": "svc/reports",
+      "layer": "svc",
+      "name": "reports"
+    },
+    {
+      "id": "data/postgres",
+      "layer": "data",
+      "name": "postgres"
+    },
+    {
+      "id": "data/storage",
+      "layer": "data",
+      "name": "storage"
+    }
+  ],
+  "units": [
+    {
+      "id": "ui.signup",
+      "name": "SignupForm",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/auth"
+    },
+    {
+      "id": "ui.validate",
+      "name": "validateFields",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/auth"
+    },
+    {
+      "id": "ui.login",
+      "name": "LoginForm",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/auth"
+    },
+    {
+      "id": "ui.invoices",
+      "name": "InvoiceList",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/billing"
+    },
+    {
+      "id": "ui.pay",
+      "name": "PayDialog",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/billing"
+    },
+    {
+      "id": "ui.reports",
+      "name": "ReportsPage",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/reports"
+    },
+    {
+      "id": "ui.export",
+      "name": "ExportButton",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/reports"
+    },
+    {
+      "id": "ui.settings",
+      "name": "SettingsPage",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/account"
+    },
+    {
+      "id": "ui.profile",
+      "name": "ProfileCard",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/account"
+    },
+    {
+      "id": "ui.dashboard",
+      "name": "Dashboard",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/shell"
+    },
+    {
+      "id": "ui.toast",
+      "name": "Toasts",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/shell"
+    },
+    {
+      "id": "ui.nav",
+      "name": "NavBar",
+      "kind": "code",
+      "layer": "ui",
+      "district": "ui/shell"
+    },
+    {
+      "id": "api.signup",
+      "name": "POST /signup",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/auth-routes"
+    },
+    {
+      "id": "api.validate",
+      "name": "validate()",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/auth-routes"
+    },
+    {
+      "id": "api.login",
+      "name": "POST /login",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/auth-routes"
+    },
+    {
+      "id": "api.rate",
+      "name": "rateLimit",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/auth-routes"
+    },
+    {
+      "id": "api.invoices",
+      "name": "GET /invoices",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/billing-routes"
+    },
+    {
+      "id": "api.pay",
+      "name": "POST /pay",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/billing-routes"
+    },
+    {
+      "id": "api.reports",
+      "name": "GET /reports",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/report-routes"
+    },
+    {
+      "id": "api.export",
+      "name": "GET /export",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/report-routes"
+    },
+    {
+      "id": "api.settings",
+      "name": "PATCH /settings",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/account-routes"
+    },
+    {
+      "id": "api.auth",
+      "name": "requireAuth",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/middleware"
+    },
+    {
+      "id": "api.errors",
+      "name": "errorHandler",
+      "kind": "code",
+      "layer": "api",
+      "district": "api/middleware"
+    },
+    {
+      "id": "svc.find",
+      "name": "UserService.find",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/users"
+    },
+    {
+      "id": "svc.create",
+      "name": "UserService.create",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/users"
+    },
+    {
+      "id": "svc.update",
+      "name": "UserService.update",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/users"
+    },
+    {
+      "id": "svc.hash",
+      "name": "hashPassword",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/auth"
+    },
+    {
+      "id": "svc.verify",
+      "name": "verifyPassword",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/auth"
+    },
+    {
+      "id": "svc.session",
+      "name": "issueSession",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/auth"
+    },
+    {
+      "id": "svc.charge",
+      "name": "BillingService.charge",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/billing"
+    },
+    {
+      "id": "svc.mail",
+      "name": "MailService.send",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/messaging"
+    },
+    {
+      "id": "svc.audit",
+      "name": "AuditLog.record",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/audit"
+    },
+    {
+      "id": "svc.report",
+      "name": "ReportBuilder",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/reports"
+    },
+    {
+      "id": "svc.csv",
+      "name": "CsvExporter",
+      "kind": "code",
+      "layer": "svc",
+      "district": "svc/reports"
+    },
+    {
+      "id": "db.users",
+      "name": "users",
+      "kind": "store",
+      "layer": "data",
+      "district": "data/postgres"
+    },
+    {
+      "id": "db.sessions",
+      "name": "sessions",
+      "kind": "store",
+      "layer": "data",
+      "district": "data/postgres"
+    },
+    {
+      "id": "db.invoices",
+      "name": "invoices",
+      "kind": "store",
+      "layer": "data",
+      "district": "data/postgres"
+    },
+    {
+      "id": "db.settings",
+      "name": "settings",
+      "kind": "store",
+      "layer": "data",
+      "district": "data/postgres"
+    },
+    {
+      "id": "db.audit",
+      "name": "audit_log",
+      "kind": "store",
+      "layer": "data",
+      "district": "data/postgres"
+    },
+    {
+      "id": "db.files",
+      "name": "file store",
+      "kind": "file",
+      "layer": "data",
+      "district": "data/storage"
+    },
+    {
+      "id": "ext.mail",
+      "name": "Mail provider",
+      "kind": "external"
+    },
+    {
+      "id": "ext.pay",
+      "name": "Payments API",
+      "kind": "external"
+    }
+  ],
+  "flows": [
+    {
+      "id": "signup",
+      "name": "Create account",
+      "lens": "system",
+      "color": "#a78bfa",
+      "steps": [
+        {
+          "unit": "ui.signup",
+          "label": "Form submitted"
+        },
+        {
+          "unit": "ui.validate",
+          "label": "Client-side validation"
+        },
+        {
+          "unit": "api.signup",
+          "label": "POST /signup"
+        },
+        {
+          "unit": "api.validate",
+          "label": "Validate payload"
+        },
+        {
+          "unit": "svc.find",
+          "label": "Look up email"
+        },
+        {
+          "unit": "db.users",
+          "label": "Read users",
+          "effect": "db-read"
+        },
+        {
+          "unit": "svc.hash",
+          "label": "Hash password"
+        },
+        {
+          "unit": "svc.create",
+          "label": "Create user"
+        },
+        {
+          "unit": "db.users",
+          "label": "Insert user",
+          "effect": "db-write"
+        },
+        {
+          "unit": "svc.mail",
+          "label": "Send welcome email"
+        },
+        {
+          "unit": "ext.mail",
+          "label": "Mail provider",
+          "effect": "external"
+        },
+        {
+          "unit": "svc.audit",
+          "label": "Record audit event"
+        },
+        {
+          "unit": "db.audit",
+          "label": "Write audit_log",
+          "effect": "db-write"
+        },
+        {
+          "unit": "ui.toast",
+          "label": "Show welcome toast"
+        }
+      ],
+      "branches": [
+        {
+          "atStep": 1,
+          "label": "inline errors"
+        },
+        {
+          "atStep": 3,
+          "label": "400 invalid"
+        },
+        {
+          "atStep": 4,
+          "label": "409 email taken"
+        }
+      ]
+    },
+    {
+      "id": "login",
+      "name": "Log in",
+      "lens": "system",
+      "color": "#2dd4bf",
+      "steps": [
+        {
+          "unit": "ui.login",
+          "label": "Form submitted"
+        },
+        {
+          "unit": "api.login",
+          "label": "POST /login"
+        },
+        {
+          "unit": "api.rate",
+          "label": "Rate-limit check"
+        },
+        {
+          "unit": "svc.find",
+          "label": "Look up user"
+        },
+        {
+          "unit": "db.users",
+          "label": "Read users",
+          "effect": "db-read"
+        },
+        {
+          "unit": "svc.verify",
+          "label": "Verify password"
+        },
+        {
+          "unit": "svc.session",
+          "label": "Issue session"
+        },
+        {
+          "unit": "db.sessions",
+          "label": "Write session",
+          "effect": "db-write"
+        },
+        {
+          "unit": "ui.dashboard",
+          "label": "Open dashboard"
+        }
+      ],
+      "branches": [
+        {
+          "atStep": 2,
+          "label": "429 slow down"
+        },
+        {
+          "atStep": 5,
+          "label": "401 denied"
+        }
+      ]
+    },
+    {
+      "id": "pay",
+      "name": "Pay invoice",
+      "lens": "system",
+      "color": "#fbbf24",
+      "steps": [
+        {
+          "unit": "ui.invoices",
+          "label": "Pick invoice"
+        },
+        {
+          "unit": "ui.pay",
+          "label": "Confirm payment"
+        },
+        {
+          "unit": "api.pay",
+          "label": "POST /pay"
+        },
+        {
+          "unit": "api.auth",
+          "label": "requireAuth"
+        },
+        {
+          "unit": "db.sessions",
+          "label": "Read session",
+          "effect": "db-read"
+        },
+        {
+          "unit": "svc.charge",
+          "label": "Charge card"
+        },
+        {
+          "unit": "ext.pay",
+          "label": "Payments API",
+          "effect": "external"
+        },
+        {
+          "unit": "db.invoices",
+          "label": "Mark invoice paid",
+          "effect": "db-write"
+        },
+        {
+          "unit": "svc.mail",
+          "label": "Send receipt"
+        },
+        {
+          "unit": "ext.mail",
+          "label": "Mail provider",
+          "effect": "external"
+        },
+        {
+          "unit": "ui.toast",
+          "label": "Show receipt toast"
+        }
+      ],
+      "branches": [
+        {
+          "atStep": 6,
+          "label": "402 declined"
+        },
+        {
+          "atStep": 3,
+          "label": "401 expired"
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "name": "Update settings",
+      "lens": "system",
+      "color": "#f472b6",
+      "steps": [
+        {
+          "unit": "ui.settings",
+          "label": "Save settings"
+        },
+        {
+          "unit": "api.settings",
+          "label": "PATCH /settings"
+        },
+        {
+          "unit": "api.auth",
+          "label": "requireAuth"
+        },
+        {
+          "unit": "db.sessions",
+          "label": "Read session",
+          "effect": "db-read"
+        },
+        {
+          "unit": "svc.update",
+          "label": "Update user"
+        },
+        {
+          "unit": "db.settings",
+          "label": "Write settings",
+          "effect": "db-write"
+        },
+        {
+          "unit": "svc.audit",
+          "label": "Record audit event"
+        },
+        {
+          "unit": "db.audit",
+          "label": "Write audit_log",
+          "effect": "db-write"
+        },
+        {
+          "unit": "ui.toast",
+          "label": "Show saved toast"
+        }
+      ],
+      "branches": [
+        {
+          "atStep": 1,
+          "label": "422 bad value"
+        }
+      ]
+    }
+  ]
+}

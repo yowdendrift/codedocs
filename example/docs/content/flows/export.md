@@ -43,6 +43,19 @@ posts it to the worker.
 On `done` or `error`, the queue records the result and calls
 `src/render/queue.ts#RenderQueue.finish`, which starts the next job.
 
+## Flow graph
+```flowgraph
+`src/ui/export-button.ts#mountExportButton` | Press Export
+branch | Nothing to export
+`src/timeline/timeline.ts#Timeline.duration` | Check it isn't empty
+`src/timeline/timeline.ts#Timeline.snapshot` | Snapshot the timeline
+`src/render/queue.ts#RenderQueue.enqueue` | Queue the job | queue
+`src/render/queue.ts#RenderQueue.pump` | Hand it to the worker
+`src/render/encode.worker.ts` | Encode frames
+branch | Job failed
+`src/render/queue.ts#RenderQueue.finish` | Record the result
+```
+
 ## When it goes wrong
 Errors in the worker come back as `error` messages and mark the job `failed`. There is no retry.
 

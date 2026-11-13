@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "flowview", "runtimeExecutable": "node", "runtimeArgs": ["flowview/scripts/serve.mjs"], "port": 8790 },
+    { "name": "example-docs", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "cd example && ../skills/codedocs/bin/codedocs.exe serve --port 8792"], "port": 8792 }
+  ]
+}

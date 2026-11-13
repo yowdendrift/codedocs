@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flow view</title>
+<!-- The glass layers flow view for /codedocs. Built into the codedocs binary; the copy in a
+     docs folder is replaced by /codedocs flows and /codedocs upgrade. The data is
+     flowgraph.json (flowgraph.js for file:// pages); the code is lib/flowview.js, built from
+     flowview/src in the codedocs repository. Works opened straight from disk. -->
+<link rel="stylesheet" href="flowview.css">
+</head>
+<body>
+<div id="stage"></div>
+<div id="labels"></div>
+<header>
+  <div class="brand"><h1>Flow view</h1><p>Drag to orbit, pinch or scroll to zoom, tap anything.</p></div>
+  <div class="pill" aria-live="polite">Flow coverage <b id="covTxt">0%</b><div class="bar"><i id="covBar"></i></div></div>
+</header>
+<div id="card" role="dialog" aria-label="Unit details"></div>
+<div id="sheet">
+  <div id="caption" aria-live="polite"></div>
+  <div class="row chips" id="chips"></div>
+  <div class="row">
+    <button id="btnLight" title="Replay the documentation light-up">Light up</button>
+    <button id="btnGaps" title="Highlight code that sits on no documented flow">Show gaps</button>
+    <div class="seg" role="group" aria-label="Camera view">
+      <button data-view="3d" class="on">3D</button><button data-view="side">Side</button><button data-view="top">Top</button>
+    </div>
+  </div>
+  <div class="row legend">
+    <span><i class="lg-code"></i>code</span><span><i class="lg-eff"></i>side effect</span><span><i class="lg-dark"></i>undocumented</span><span><i class="lg-stub"></i>branch not taken</span>
+  </div>
+</div>
+<div id="fallback" hidden></div>
+<script src="flowgraph.js" onerror="this.remove()"></script>
+<script src="lib/flowview.js"></script>
+</body>
+</html>

@@ -240,7 +240,9 @@ func cmdInstallViewer(o options) {
 	}
 	write("index.html", readAsset("index.html"))
 	write("viewer.css", readAsset("viewer.css"))
-	actions = append(actions, "wrote index.html, viewer.css")
+	write("flowview.html", readAsset("flowview.html"))
+	write("flowview.css", readAsset("flowview.css"))
+	actions = append(actions, "wrote index.html, viewer.css, flowview.html, flowview.css")
 	if !fileExists(filepath.Join(docsDir, "theme.css")) {
 		b, from := defaultTheme()
 		write("theme.css", b)
@@ -373,6 +375,16 @@ func cmdCheck(o options) {
 			for _, g := range flowStepGaps(p.Body) {
 				warnings = append(warnings, Issue{"content/" + p.File, g.DocLine + p.Offset, "step-without-symbol", g.Detail})
 			}
+		}
+	}
+	// Flow graph: blocks that don't parse, steps that don't resolve, layers.yml mistakes.
+	if hasFlowBlocks(pages) {
+		_, rep := buildGraph(docsDir, cfg, graphOptions{})
+		for _, i := range rep.Problems {
+			issues = append(issues, Issue{i.Page, i.Line, "flowgraph", i.Detail})
+		}
+		for _, e := range append(rep.LayerErrs, rep.Invalid...) {
+			issues = append(issues, Issue{"flowgraph", 0, "flowgraph", e})
 		}
 	}
 	var compGlobs []string

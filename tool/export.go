@@ -70,6 +70,8 @@ func cmdExport(o options) {
 	// The viewer, its libraries and the theme.
 	write("index.html", readAsset("index.html"))
 	write("viewer.css", readAsset("viewer.css"))
+	write("flowview.html", readAsset("flowview.html"))
+	write("flowview.css", readAsset("flowview.css"))
 	entries, _ := assets.ReadDir("assets/lib")
 	for _, e := range entries {
 		if strings.HasSuffix(e.Name(), ".gz") {
@@ -106,6 +108,7 @@ func cmdExport(o options) {
 	// Where the source lives.
 	src, web, ref, repo := exportSource(o, cfg)
 	if src == "" {
+		exportGraph(docsDir, cfg, "", write)
 		fmt.Println("No code panel: this isn't a GitHub repo (no github.com remote). Pass --github OWNER/REPO, or --source-url and --web-url, to add one.")
 		return
 	}
@@ -195,6 +198,7 @@ func cmdExport(o options) {
 		write("code/meta/"+f+".json", compactJSON(cm))
 		metas = append(metas, i)
 	}
+	exportGraph(docsDir, cfg, web, write)
 	write("code/index.json", compactJSON(codeIndex{Version: version, Project: cfg.Project, Source: src, Web: web, Ref: ref, Repo: repo, Files: files, Meta: metas}))
 	fmt.Printf("Code panel: %d files from %s (%d with import links)\n", len(files), strings.TrimSuffix(src, "/"), len(metas))
 
@@ -207,6 +211,27 @@ func cmdExport(o options) {
 	if m.LastSynced != nil && ref != "" && !strings.HasPrefix(ref, *m.LastSynced) && !strings.HasPrefix(*m.LastSynced, ref) {
 		fmt.Printf("Note: the docs describe commit %s but the code panel shows %s; run /codedocs update, or pass --ref %s.\n", short(*m.LastSynced), short(ref), short(*m.LastSynced))
 	}
+}
+
+// exportGraph writes the flow graph, if the docs have one. Its file links go to the forge's
+// website when there's one, since the export has no repo next to it.
+func exportGraph(docsDir string, cfg *Config, web string, write func(string, []byte)) {
+	pages := loadPages(docsDir)
+	if !hasFlowBlocks(pages) {
+		if b, err := os.ReadFile(filepath.Join(docsDir, "flowgraph.json")); err == nil {
+			write("flowgraph.json", b)
+			write("flowgraph.js", append(append([]byte("window.__FLOWGRAPH__ = "), bytes.TrimSpace(b)...), []byte(";\n")...))
+		}
+		return
+	}
+	g, rep := buildGraph(docsDir, cfg, graphOptions{Web: web})
+	if !rep.ok() {
+		fmt.Println("Flow view left out: the flow graph has problems (run codedocs flows to see them).")
+		return
+	}
+	write("flowgraph.json", marshal(g))
+	write("flowgraph.js", flowgraphJS(g))
+	fmt.Printf("Flow view: %d flows, %d units\n", len(g.Flows), len(g.Units))
 }
 
 func compactJSON(v any) []byte {

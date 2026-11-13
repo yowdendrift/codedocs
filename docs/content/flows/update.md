@@ -60,6 +60,19 @@ new component, which the user approves first.
 
 `manifest`, `check`, then `tool/cmds.go#cmdMarkSynced` moves the sync point to `HEAD`.
 
+## Flow graph
+
+```flowgraph
+`skills/codedocs/reference/update.md` | /codedocs update
+`tool/cmds.go#cmdAffected` | Map changes to pages
+external Git | Diff since the last sync
+branch | Nothing changed: stop
+`tool/cmds.go#cmdManifest` | Rebuild the manifest | disk-write
+`tool/cmds.go#cmdCheck` | Check the docs
+`tool/flows_cmd.go#cmdFlowsScan` | Find stale flow graphs
+`tool/cmds.go#cmdMarkSynced` | Move the sync point | disk-write
+```
+
 ## When it goes wrong
 
 - No `last_synced` and no range: `affected` stops and the agent asks which range to use.

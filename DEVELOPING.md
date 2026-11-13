@@ -22,6 +22,10 @@ tool/                     Go source for the binary (standard library only)
   assets/                 the viewer (index.html, viewer.css, default theme.css) and
                           lib/*.js.gz, the browser libraries, embedded into the binary
   vendor.sh               refresh the embedded libraries (needs npm)
+  assets/flowview.*       the 3D flow view's page and styles; its script is lib/flowview.js.gz
+flowview/                 TypeScript source of the flow view (three.js), bundled by esbuild
+schema/flowgraph.v1.json  the flowgraph.json contract (tool/flowgraph.go enforces the same rules)
+docs/design/              the flow view's mockup and sample graph (the visual reference)
 docs/                     codedocs' documentation of itself (published as the live demo)
 example/                  a tiny fake editor with a full docs set, for trying changes
 scripts/check-versions.sh checks VERSION, plugin.json, CHANGELOG and REPO agree
@@ -46,8 +50,13 @@ plugin. A local build always wins over a download.
 
 The loop:
 
-1. Change something: a guide in `skills/codedocs/reference/`, the viewer in `tool/assets/`, or
-   the tool in `tool/*.go`.
+1. Change something: a guide in `skills/codedocs/reference/`, the viewer in `tool/assets/`,
+   the tool in `tool/*.go`, or the flow view in `flowview/src/`. The flow view needs Node:
+   `cd flowview && npm ci && npm run build` writes `tool/assets/lib/flowview.js.gz` (commit
+   it; CI checks it matches the source) and a standalone copy in `flowview/dist/` with the
+   sample graph. `npm run check` type-checks. `node scripts/serve.mjs` serves `dist/` on port
+   8790; `?src=design/flowgraph.sample.json` loads another graph, `?nowebgl` shows the SVG
+   fallback, `?still` the reduced-motion view.
 2. Rebuild if you touched `tool/` (`.\build.ps1` or `./build.sh`). Both stop running viewers
    first, because Windows locks a running binary.
    Run `go test ./...` in `tool/` too. It includes a parity test that runs the viewer's

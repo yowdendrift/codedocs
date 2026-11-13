@@ -5,3 +5,4 @@ d3 7.9.0                https://github.com/d3/d3                    ISC
 markmap-lib 0.18.12     https://github.com/markmap/markmap          MIT
 markmap-view 0.18.12    https://github.com/markmap/markmap          MIT
 highlight.js 11.12.0    https://github.com/highlightjs/highlight.js BSD-3-Clause
+three 0.187.0           https://github.com/mrdoob/three.js          MIT   (bundled into flowview.js by flowview/build.mjs, not vendor.sh)

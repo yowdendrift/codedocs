@@ -77,6 +77,15 @@ looks up the definition and inserts the callee's body under that line, so a read
 the code down without leaving the page. Several matches, or a body over 400 lines, open in the
 code panel instead.
 
+### Flow view
+
+When the docs have a flow graph, the sidebar gets a **Flow view** entry. The
+`#/flowview/<deep link>` route (`tool/assets/index.html#showFlowView`) shows the [flow
+view](flow-view.md)'s own page, flowview.html, in a frame, and listens for its messages:
+"Open in code viewer" opens the code panel, a flow name opens its page, and the frame's deep
+link is mirrored into the URL so it can be shared. Flow pages render their `flowgraph` block as
+a numbered list with a link into the view (`tool/assets/index.html#flowgraphHtml`).
+
 ### Where code comes from
 
 `tool/assets/index.html#Code` hides the difference between serving and a static export. With the
