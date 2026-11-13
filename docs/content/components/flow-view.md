@@ -2,7 +2,7 @@
 title: Flow view
 summary: The 3D picture of a codebase as stacked glass layers with each documented flow drawn through it, and the tool command that builds the graph it draws from the docs.
 order: 75
-paths: [tool/flows.go, tool/flows_cmd.go, tool/flowgraph.go, tool/flowgraph_test.go, flowview/**, schema/**]
+paths: [tool/flows.go, tool/flows_cmd.go, tool/flowgraph.go, tool/flowgraph_test.go, flowview/**, schema/**, .codedocs/**]
 layer: svc
 generated_with: 0.1.0
 updated: 2026-11-13

@@ -4,7 +4,7 @@ summary: The instructions the agent follows: SKILL.md dispatches each /codedocs 
 order: 80
 paths: [skills/codedocs/SKILL.md, skills/codedocs/reference/**, skills/codedocs/agents/**, skills/codedocs/CHANGELOG.md, skills/codedocs/VERSION, skills/codedocs/REPO]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-13
 ---
 # The skill
 
@@ -43,6 +43,10 @@ command and pointing back to the shared references:
 - `skills/codedocs/reference/add.md`: a subject to research, or an insight to record.
 - `skills/codedocs/reference/style.md`, `skills/codedocs/reference/upgrade.md` and
   `skills/codedocs/reference/links.md`: the viewer's look, version moves, and code-panel links.
+- `skills/codedocs/reference/flows.md`: trace each flow into a `flowgraph` block for the
+  [flow view](flow-view.md). The tool lists units and layers; the agent decides the hops, their
+  labels and which ones have side effects. `update` re-traces only the blocks the scan marks
+  stale.
 
 ### The shared references
 

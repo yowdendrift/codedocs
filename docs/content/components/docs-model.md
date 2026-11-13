@@ -4,7 +4,7 @@ summary: Reads the docs folder (config, pages, frontmatter, code refs, links) an
 order: 20
 paths: [tool/pages.go]
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 # Docs model
 
@@ -46,7 +46,8 @@ and it keeps the binary dependency-free.
 
 `tool/pages.go#extractRefs` finds code refs with `reRef` after `tool/pages.go#stripCode` has
 blanked fenced code blocks (examples inside ``` aren't refs) while keeping line numbers, so
-`check` can report the right line. `tool/pages.go#extractLinks` finds relative `.md` links, and
+`check` can report the right line. `flowgraph` fences are the exception: their hops are code
+refs, and are checked like any other. `tool/pages.go#extractLinks` finds relative `.md` links, and
 `tool/pages.go#headings` the `##`/`###` headings the viewer uses for its outline and the map.
 
 ### Symbol resolution
@@ -70,7 +71,9 @@ so pages only ever declare links in one direction. Every `file#Symbol` ref is re
 here (`symbols`), so the viewer can link straight to the right line without asking the server.
 Each entry also lists its symbol refs in page order (`syms`). The manifest's `spans` holds the
 first and last line of every named symbol, and of the block each `file:N` ref starts. The
-viewer's Code view of a flow reads both, and so do export's call sites.
+viewer's Code view of a flow reads both, and so do export's call sites. A flow page with a
+`flowgraph` block gets its flow's id in the [flow view](flow-view.md) (`graph`), and the manifest's
+`flowgraph` flag tells the viewer to offer the view.
 
 ## Interfaces
 

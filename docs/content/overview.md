@@ -2,7 +2,7 @@
 title: codedocs
 summary: A skill and a small tool that document a codebase for the person who has to understand it, and a viewer to read the result in.
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-13
 ---
 # codedocs
 
@@ -33,6 +33,8 @@ flowchart LR
   Server -->|asks| Intel[Code intelligence]
   Export -->|precomputes from| Intel
   Server -->|serves| Viewer[Viewer]
+  Commands -->|builds graph with| Flow[Flow view]
+  Viewer -->|frames| Flow
   Export -->|writes| Viewer
   Dist[Distribution] -->|installs| Skill
   Dist -->|builds| CLI
@@ -59,6 +61,10 @@ several languages with patterns, for the code panel and `find`.
 source from GitHub. This page is one.
 
 **[Viewer](components/viewer.md)** is the single-page app you're reading this in.
+
+**[Flow view](components/flow-view.md)** draws the code as stacked glass layers with each
+documented flow as a line of light through it, from a graph that `codedocs flows` builds out of
+the flow pages' `flowgraph` blocks.
 
 **[Distribution](components/distribution.md)** packages it all as a Claude Code plugin, builds
 release binaries and downloads the right one on first run.
@@ -92,7 +98,7 @@ release binaries and downloads the right one on first run.
 Use it: in Claude Code, `/plugin install codedocs --marketplace yowdendrift/codedocs`, then
 `/codedocs init` in a repository.
 
-Work on it (needs Go 1.22+):
+Work on it (needs Go 1.22+; the flow view's source in `flowview/` also needs Node):
 
 ```sh
 ./build.sh                       # binary for this machine, into skills/codedocs/bin
@@ -116,6 +122,8 @@ is described in [releasing a version](flows/release.md) and `DEVELOPING.md`.
   [the decision on patterns](decisions/0002-regex-code-intelligence.md).
 - **To add a command:** [CLI](components/cli.md), then the
   [bookkeeping commands](components/commands.md) for the conventions, and a guide in the skill.
+- **To change the 3D flow view:** [flow view](components/flow-view.md); rebuild the bundle with
+  `npm run build` in `flowview/` and commit it.
 - **To ship it:** [distribution](components/distribution.md) and
   [releasing a version](flows/release.md).
 - **Before anything:** [gotchas](gotchas.md).

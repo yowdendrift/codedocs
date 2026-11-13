@@ -2,7 +2,7 @@
 title: Gotchas
 summary: Traps in this codebase that cost time the first time you hit them.
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 # Gotchas
 
@@ -37,6 +37,12 @@ compares them on the same cases and fails CI if they disagree; locally it needs 
 without it. How a flow's steps are found is mirrored too, without a test:
 `tool/assets/index.html#flowSteps` (the Code view) and `tool/cmds.go#flowStepGaps` (the `check`
 warning).
+
+## flowview.js.gz is a build output
+
+The flow view's script, `tool/assets/lib/flowview.js.gz`, is bundled from `flowview/src` by
+`flowview/build.mjs`. Editing it does nothing lasting, and changing the source without running
+`npm run build` and committing the bundle fails CI.
 
 ## `${CLAUDE_SKILL_DIR}` only works in SKILL.md
 

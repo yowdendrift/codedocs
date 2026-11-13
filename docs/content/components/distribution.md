@@ -4,7 +4,7 @@ summary: How codedocs gets onto a machine and stays current: the plugin and mark
 order: 90
 paths: [skills/codedocs/bin/**, build.sh, build.ps1, install.ps1, scripts/**, .github/**, .claude-plugin/**]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-13
 ---
 # Distribution
 
@@ -49,7 +49,8 @@ produce release assets and `SHA256SUMS` in `dist/`. It stops any running viewer 
 ### Workflows
 
 - `.github/workflows/ci.yml`, on every push and pull request: version consistency, the
-  launcher's executable bit, `go vet`, `go test` (including the viewer parity test), all five
+  launcher's executable bit, that `tool/assets/lib/flowview.js.gz` matches a fresh build of
+  `flowview/` (with Node), `go vet`, `go test` (including the viewer parity test), all five
   builds, and `check` on the example docs and this repo's docs.
 - `.github/workflows/release.yml`, on a `v*` tag: the same checks plus tag-matches-version and
   `REPO`-names-this-repository, then `build.sh dist` and a GitHub release with the changelog

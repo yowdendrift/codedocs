@@ -4,7 +4,7 @@ summary: codedocs export turns a docs folder into a site any static host can ser
 order: 60
 components: [export, code-intelligence, viewer, distribution]
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 # Publishing the docs as a static site
 
@@ -43,7 +43,9 @@ URL from the `origin` remote and pins it to the docs' `last_synced` commit, or `
 Still in `tool/export.go#cmdExport`, the file list goes into code/index.json and definitions
 (with their end lines) into code/defs.json. Call sites of every symbol the docs name come from
 `tool/callers.go#findCallers` and go into code/callers.json. Each file's import links and
-resolved import targets go into `code/meta/<path>.json`. All of it uses the same
+resolved import targets go into `code/meta/<path>.json`. `tool/export.go#exportGraph` builds the
+flow graph once into flowgraph.json (with file links pointing at GitHub, since the site has no
+repo beside it), or leaves the flow view out if the graph has problems. All of it uses the same
 [code intelligence](../components/code-intelligence.md) as `serve`.
 
 ### 3. Deploy
