@@ -10,11 +10,11 @@ const roots = [join(here, 'dist'), join(here, '..', 'docs')];
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 const port = +(process.env.PORT || 8790);
 createServer(async (req, res) => {
-  const p = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^[\\/]+/, '');
+  const p = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^[\\/]+/, '') || 'flowview.html';
   if (p.startsWith('..')) { res.writeHead(403).end(); return; }
   for (const r of roots) {
     try {
-      const b = await readFile(join(r, p || 'flowview.html'));
+      const b = await readFile(join(r, p));
       res.writeHead(200, { 'Content-Type': (types[extname(p)] || 'application/octet-stream') + '; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(b); return;
     } catch {}
