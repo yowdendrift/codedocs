@@ -9,6 +9,13 @@ api:              # how the tool is entered: the command line and the local serv
   - tool/serve.go
 svc:              # the tool's work
   - tool/**
+ship:             # how it's built, released and installed
+  - .claude-plugin/**
+  - .github/**
+  - scripts/**
+  - build.sh
+  - build.ps1
+  - install.ps1
 ignore:
   - example/**
   - docs/design/**
