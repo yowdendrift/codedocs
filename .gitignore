@@ -12,3 +12,14 @@ docs/index.html
 docs/viewer.css
 docs/manifest.json
 _site/
+# Flow view outputs of `codedocs flows` (serve and export build the graph themselves)
+example/docs/flowgraph.json
+example/docs/flowgraph.js
+example/docs/flowview.html
+example/docs/flowview.css
+example/docs/lib/
+docs/flowgraph.json
+docs/flowgraph.js
+docs/flowview.html
+docs/flowview.css
+docs/lib/

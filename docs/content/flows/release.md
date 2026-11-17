@@ -4,7 +4,7 @@ summary: Bump the version in two places, add a changelog entry, push, tag. CI ch
 order: 50
 components: [distribution, skill]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-13
 ---
 # Releasing a version
 
@@ -49,6 +49,19 @@ before the binaries exist.
 `scripts/check-versions.sh` with the tag and repository name (so a wrong `skills/codedocs/REPO`
 fails here instead of breaking installs), runs `build.sh dist`, extracts the changelog section for
 the version, and publishes the release with `gh release create`.
+
+## Flow graph
+
+```flowgraph
+`.claude-plugin/plugin.json` | Bump the version (and VERSION)
+`skills/codedocs/CHANGELOG.md` | Write the changelog entry
+`scripts/check-versions.sh` | Check the versions agree
+`.github/workflows/ci.yml` | CI on the push to main
+`.github/workflows/release.yml` | Tag pushed: release workflow
+branch | Versions or REPO disagree: fail
+`build.sh:16-24` | Build five binaries and checksums | disk-write
+external GitHub Releases | Publish the release
+```
 
 ## When it goes wrong
 

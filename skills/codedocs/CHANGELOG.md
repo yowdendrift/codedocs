@@ -9,7 +9,35 @@ Each entry says what changed and whether it affects existing docs:
   leave it alone, so they never mark pages outdated.
 - **theme**: new variables in the default theme.css; `/codedocs upgrade` adds them to existing themes
 
-## Unreleased
+## 0.7.0 (2026-11-17)
+- **viewer: the flow view.** A 3D picture of the code as stacked glass layers (UI, API,
+  services, data, or the repo's own), each documented flow drawn as a line of light through the
+  functions it passes, with side effects in coral and branches not taken as dashed stubs. Modes:
+  a light-up tour on first visit, one flow (step by step, with a caption), and gaps (code on no
+  documented flow, in red, with the coverage figure). There is no "all flows" mode: nothing runs
+  until a flow is picked, and picking it again lets it go. Click a unit for a card that opens
+  its code in the code panel. **2D view** lifts the selected flow out of the layers into a flat,
+  straight column, one row per unit in step order, with each step's label beside it and a
+  divider where it changes layer; the units fly between the two views, the layers fade, and the
+  camera faces it square on (pan and zoom only). Camera presets
+  3D / Side / Top; deep links `#flow-<id>`, `#focus-<id>` and `#gaps`; touch, reduced motion,
+  and an SVG side view where WebGL isn't available. It opens from
+  a **Flow view** entry in the sidebar, from a flow page, or as `flowview.html` in the docs
+  folder, which works opened straight from disk. Static exports include it.
+- **`codedocs flows`** builds the graph behind it (`flowgraph.json`, schema in
+  `schema/flowgraph.v1.json`) from `flowgraph` blocks on flow pages, the repo's functions and
+  route handlers, and layers from `.codedocs/layers.yml`, a component's `layer`, or folder and
+  file names. It validates before writing and writes nothing if a hop doesn't resolve.
+  `flows --scan` lists layers, unclassified files, routes and other entry points, side-effect
+  candidates, stale blocks and uncovered code, for the agent. `serve` and `export` build the
+  graph themselves; `check` checks the blocks.
+- **content model**: flow pages may carry a ```` ```flowgraph ```` block (one hop per line:
+  `unit | label | effect`, `branch | label`), shown in the docs viewer as a numbered list.
+  Components may set `layer`. Both optional; existing docs are unaffected.
+- **guidance**: new `/codedocs flows` guide; `update` re-traces stale blocks. Additive, so the
+  page-guidance version is unchanged and no pages show as outdated.
+- **viewer**: the sidebar's sections open one at a time from their headings; going to a page
+  opens its section.
 - **viewer**: the mind map now uses the theme's colours. In dark mode its headings ("Components",
   "Flows"…) and the "via …" lines were dark grey on a dark background; markmap's own defaults
   were overriding the theme.

@@ -4,7 +4,7 @@ summary: /codedocs update maps the changed files to the pages they affect, reads
 order: 20
 components: [skill, commands, docs-model]
 generated_with: 0.1.0
-updated: 2026-10-29
+updated: 2026-11-13
 ---
 # Updating the docs after a change
 
@@ -48,7 +48,9 @@ doesn't explain itself.
 `skills/codedocs/reference/update.md` asks for the smallest correct edit: fix what's now wrong,
 add what's new, remove what's gone, keep wording that's still right. Locked pages are skipped and
 reported. Insights and stated decisions are never edited; if the change contradicts one, the agent
-asks the user.
+asks the user. When the docs have a flow graph, `tool/flows_cmd.go#cmdFlowsScan` lists the
+`flowgraph` blocks whose code changed since the graph was last written, and only those are
+re-traced.
 
 ### 4. Record what's new
 
@@ -58,7 +60,21 @@ new component, which the user approves first.
 
 ### 5. Finish
 
-`manifest`, `check`, then `tool/cmds.go#cmdMarkSynced` moves the sync point to `HEAD`.
+`manifest`, `check` (which also checks the `flowgraph` blocks), `flows` if a block changed, then
+`tool/cmds.go#cmdMarkSynced` moves the sync point to `HEAD`.
+
+## Flow graph
+
+```flowgraph
+`skills/codedocs/reference/update.md` | /codedocs update
+`tool/cmds.go#cmdAffected` | Map changes to pages
+external Git | Diff since the last sync
+branch | Nothing changed: stop
+`tool/cmds.go#cmdManifest` | Rebuild the manifest | disk-write
+`tool/cmds.go#cmdCheck` | Check the docs
+`tool/flows_cmd.go#cmdFlowsScan` | Find stale flow graphs
+`tool/cmds.go#cmdMarkSynced` | Move the sync point | disk-write
+```
 
 ## When it goes wrong
 

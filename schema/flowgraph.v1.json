@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yowdendrift/codedocs/schema/flowgraph.v1.json",
+  "title": "codedocs flow graph, version 1",
+  "description": "The file the glass layers flow view renders: a repo's units (components, functions, route handlers, tables, external services) on architectural layers, and the documented flows that thread through them. Written by `codedocs flows` next to manifest.json, as flowgraph.json and as flowgraph.js (`window.__FLOWGRAPH__ = {...}`, for file:// pages). Coverage is not stored: the viewer works it out from units and flows. JSON Schema can't check that references resolve, so the tool checks those too: every step.unit names a unit, unit.layer a layer, unit.district a district on the same layer, branch.atStep a step of its own flow, and branch.target and flow.parent a flow.",
+  "type": "object",
+  "required": ["version", "generatedAt", "repo", "layers", "districts", "units", "flows"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "repo": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "commit": { "type": ["string", "null"], "description": "The commit the graph was built at. Later runs re-trace only flows whose units changed since." },
+        "web": { "type": "string", "description": "Base URL of the repo on its forge's website, at that commit. A unit's file is appended to it when there's no code panel." },
+        "root": { "type": "string", "description": "Path from the folder holding flowgraph.json to the repo root, e.g. \"..\". Used for file links when there's no code panel and no web URL." }
+      }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/layer" }
+    },
+    "districts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/district" }
+    },
+    "units": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/unit" }
+    },
+    "flows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flow" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/$-]*$" },
+    "docRef": {
+      "type": "string",
+      "description": "A page of the docs viewer, as its URL hash names it: \"components/auth\", or \"components/auth::signupform\" for a section."
+    },
+    "layer": {
+      "type": "object",
+      "required": ["id", "name", "order"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer", "description": "Top to bottom: 0 is the top sheet." }
+      }
+    },
+    "district": {
+      "type": "object",
+      "required": ["id", "layer", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "layer": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "description": "The folder or file the district stands for." }
+      }
+    },
+    "unit": {
+      "type": "object",
+      "required": ["id", "name", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["code", "store", "file", "external", "queue", "cache"] },
+        "layer": { "$ref": "#/$defs/id" },
+        "district": { "$ref": "#/$defs/id" },
+        "file": { "type": "string", "description": "Source file, relative to the repo root." },
+        "lines": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "First and last line of the unit in its file."
+        },
+        "docRef": { "$ref": "#/$defs/docRef" }
+      },
+      "if": { "properties": { "kind": { "const": "external" } } },
+      "then": { "not": { "anyOf": [{ "required": ["layer"] }, { "required": ["district"] }] } },
+      "else": { "required": ["layer", "district"] }
+    },
+    "flow": {
+      "type": "object",
+      "required": ["id", "name", "steps"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "lens": { "enum": ["system", "ui"], "default": "system" },
+        "color": {
+          "anyOf": [{ "type": "null" }, { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }],
+          "description": "null or absent: the viewer picks from its palette."
+        },
+        "docRef": { "$ref": "#/$defs/docRef" },
+        "parent": { "$ref": "#/$defs/id", "description": "Reserved for sub-flows: the flow this one belongs to." },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/step" }
+        },
+        "branches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/branch" }
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": ["unit", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "unit": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1 },
+        "effect": { "enum": ["db-read", "db-write", "external", "disk-write", "queue", "cache"] }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "required": ["atStep", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "atStep": { "type": "integer", "minimum": 0, "description": "Zero-based index into the flow's steps." },
+        "label": { "type": "string", "minLength": 1 },
+        "target": { "$ref": "#/$defs/id", "description": "A flow id, when the exit is itself a documented flow." }
+      }
+    }
+  }
+}

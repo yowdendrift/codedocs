@@ -4,7 +4,7 @@ summary: From /plugin install to a running tool: Claude Code copies the repo int
 order: 40
 components: [distribution, skill, cli]
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 # Installing and first run
 
@@ -57,6 +57,20 @@ saying what to do. On success it keeps the binary in `bin/` and runs it.
 
 `tool/cmds.go#skillDir` resolves the binary's own path to find the skill folder beside it, which
 is how `version --guidance` reads the installed guides' version.
+
+## Flow graph
+
+```flowgraph
+external Claude Code | /plugin install
+`.claude-plugin/marketplace.json` | Find the plugin
+`skills/codedocs/SKILL.md` | /codedocs runs the launcher
+branch | Binary already in bin/: run it
+external GitHub Releases | Launcher fetches binary and SHA256SUMS
+branch | Checksum mismatch: stop
+file skills/codedocs/bin | Keep the verified binary | disk-write
+`tool/main.go#main` | Dispatch the command
+`tool/cmds.go#skillDir` | Find the skill folder
+```
 
 ## When it goes wrong
 

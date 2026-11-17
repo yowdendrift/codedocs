@@ -4,7 +4,7 @@ summary: codedocs serve: a localhost web server for the viewer, the docs and a r
 order: 50
 paths: [tool/serve.go]
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-17
 ---
 # Viewer server
 
@@ -33,8 +33,13 @@ and how `stop` finds it without killing processes.
 
 ### Routes
 
-- `/`, /viewer.css, `/lib/*`: the embedded viewer and libraries (served gzipped when the
-  browser accepts it).
+- `/`, /viewer.css, /flowview.html, /flowview.css, `/lib/*`: the embedded viewer, the
+  [flow view](flow-view.md) and libraries (served gzipped when the browser accepts it).
+  /flowview.html comes from `tool/flows_cmd.go#flowviewPage`, which versions its script and
+  stylesheet links by content hash, because `/lib/` is cached for a day and the page isn't.
+- /flowgraph.json and /flowgraph.js: the flow graph, built from the flow pages on request
+  (cached a few seconds) so an edited block shows on reload. Without any `flowgraph` blocks, the
+  docs folder's own flowgraph.json is served as it is.
 - /manifest.json: built fresh per request.
 - Anything else: a file from the docs folder via `tool/serve.go#serveDocsFile`, confined to it.
 - `/api/info`, `/api/files`, `/api/file`, `/api/definition`, `/api/callers`: the code panel API.

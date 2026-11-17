@@ -1,0 +1,8 @@
+# Which layer each part of the code sits on, top to bottom. Read by `codedocs flows`.
+ui:
+  - src/ui/**
+  - src/main.ts
+svc:
+  - src/render/**
+data:
+  - src/timeline/**

@@ -1,0 +1,16 @@
+{
+  "name": "codedocs-flowview",
+  "private": true,
+  "description": "The glass layers flow view. Built into tool/assets/lib/flowview.js.gz and embedded in the codedocs binary.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/three": "0.187.0",
+    "esbuild": "0.28.2",
+    "three": "0.187.0",
+    "typescript": "5.9.3"
+  }
+}

@@ -19,6 +19,17 @@ jobs:
             echo "Not executable. Fix with: git update-index --chmod=+x skills/codedocs/bin/codedocs"; exit 1; }
       - name: Versions agree
         run: sh scripts/check-versions.sh
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Flow view bundle matches its source
+        working-directory: flowview
+        run: |
+          npm ci
+          npm run check
+          npm run build
+          git show HEAD:tool/assets/lib/flowview.js.gz | gunzip | cmp - dist/lib/flowview.js || {
+            echo "tool/assets/lib/flowview.js.gz is stale. Run: cd flowview && npm run build, and commit it."; exit 1; }
       - name: Vet
         working-directory: tool
         run: go vet ./...

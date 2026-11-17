@@ -19,7 +19,9 @@ fraction of `init`. Read `content-model.md` and `writing.md` if you haven't this
 3. **Update the pages listed, minimally.**
    - Fix statements the change made wrong; add what's new; remove what's gone.
    - Keep the page's structure and wording where it's still right. Don't rewrite for style.
-   - A changed flow: update the affected steps and the diagram if the hops changed.
+   - A changed flow: update the affected steps and the diagram if the hops changed. If the docs
+     have a flow graph (`flowgraph.json` in the docs folder), run `T flows --scan` and re-trace
+     the blocks it marks stale, as in `<skill>/reference/flows.md` ("Refreshing").
    - Skip `locked` pages; tell the user what they'd need to change.
    - Keep `> [!INSIGHT]` blocks and stated decisions as they are. If the change contradicts one,
      don't edit it: flag it to the user, who knows whether the insight still holds.
@@ -33,5 +35,6 @@ fraction of `init`. Read `content-model.md` and `writing.md` if you haven't this
      a genuinely new area, propose a new component page to the user before writing it.
    - Overview: only touch it if the change alters the component map, a main journey, an
      invariant, or how to run the project.
-5. **Finish.** `T manifest`, `T check` (fix what it reports), then `T mark-synced`. Report which
+5. **Finish.** `T manifest`, `T check` (fix what it reports), `T flows` if you touched a
+   flowgraph block, then `T mark-synced`. Report which
    pages changed, in a few lines.

@@ -50,11 +50,25 @@ a:hover { text-decoration-thickness: 2px; }
   background: var(--surface); color: var(--text); font: inherit;
 }
 .search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.nav-group { margin-bottom: 1rem; }
-.nav-group h4 {
-  margin: 0 .35rem .3rem; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--muted); font-weight: 600;
+.nav-group { margin-bottom: .35rem; }
+.nav-group h4 { margin: 0; }
+/* Sections open one at a time: the heading is the toggle. */
+.nav-group h4 button {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  padding: .4rem .4rem; border: 0; border-radius: var(--radius); background: none; cursor: pointer;
+  font: inherit; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; text-align: left;
 }
+.nav-group h4 button:hover { color: var(--text); background: var(--surface); }
+.nav-group h4 button::after {
+  content: ""; width: .38rem; height: .38rem; flex: none; margin-right: .2rem;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg); transition: transform .15s;
+}
+.nav-group.open h4 button { color: var(--text); }
+.nav-group.open h4 button::after { transform: translateY(-.1rem) rotate(45deg); }
+.nav-links { display: none; padding: .1rem 0 .6rem; }
+.nav-group.open .nav-links { display: block; }
 .nav-group a {
   display: flex; align-items: baseline; gap: .5rem; padding: .28rem .4rem; border-radius: var(--radius);
   color: var(--text); text-decoration: none; line-height: 1.35;
@@ -341,3 +355,21 @@ body.ctrl-down .code .cc { cursor: pointer; }
 .slice-inline .slice-fold { margin-left: auto; width: 1.4rem; height: 1.4rem; }
 .slice-more { display: block; margin: .3rem 0 .2rem 4.2em; padding: .2rem .6rem; font: inherit; font-family: var(--font-body); font-size: .78rem; color: var(--link); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; }
 .slice-more:hover { border-color: var(--link); }
+
+/* ---------- flow view (flowview.html in a frame) and flowgraph blocks ---------- */
+.main.flowview { padding: 0; gap: 0; }
+.main.flowview .page { max-width: none; }
+.main.flowview .rail { display: none; }
+iframe.flowview { display: block; width: 100%; height: 100vh; height: 100dvh; border: 0; background: #070a12; }
+.flowgraph { margin: 0 0 1.4rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: .7rem 1rem .8rem; }
+.fg-head { display: flex; flex-wrap: wrap; gap: .3rem 1rem; justify-content: space-between; font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: .45rem; }
+.fg-head a { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--link); text-decoration: none; }
+.fg-head a:hover { text-decoration: underline; }
+.flowgraph ol { margin: 0; padding-left: 1.6rem; }
+.flowgraph li { margin: .22rem 0; line-height: 1.5; }
+.flowgraph .fg-branch { color: var(--muted); font-size: .92em; margin: .1rem 0 0 .2rem; }
+.fg-arrow { font-family: var(--font-mono); }
+.fg-where { color: var(--muted); font-size: .92em; overflow-wrap: anywhere; }
+.fg-unit { font-family: var(--font-mono); font-size: .86em; }
+.fg-effect { display: inline-block; font-size: .72rem; padding: .02rem .45rem; border-radius: 999px; border: 1px solid color-mix(in srgb, #ff8a5c 55%, transparent); color: color-mix(in srgb, #ff8a5c 80%, var(--text)); white-space: nowrap; }
+.rail-flowview a { color: var(--link); font-weight: 500; }

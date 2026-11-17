@@ -2,7 +2,7 @@
 title: Glossary
 summary: The words this project uses, and what each one means here.
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 # Glossary
 
@@ -20,15 +20,20 @@ updated: 2026-11-12
 | Docs folder | The folder holding `content/`, the config, theme and viewer; usually `docs/`. | `tool/pages.go#findDocsDir` |
 | Export | A static copy of the docs whose code panel reads source from GitHub. | `tool/export.go#cmdExport` |
 | Flow | A journey through the code, step by step, across components. | `skills/codedocs/reference/content-model.md` |
+| Flow graph | flowgraph.json: layers, units and the hops of each flow, built from `flowgraph` blocks and checked against a schema. | `tool/flowgraph.go#validateGraph` |
+| Flow view | The 3D picture of the code as glass layers, each flow drawn as a line of light through its units. | `flowview/src/app.ts#start` |
+| Flowgraph block | A fenced block on a flow page listing its hops, one hop per line: unit, label and optional effect, separated by pipes. | `tool/flows.go#flowBlocks` |
 | Guidance version | The version of the writing guides, stamped on pages as `generated_with`. | `tool/cmds.go#guidanceVersion` |
 | Inferred | Worked out from the code rather than told; always marked in the docs. | `skills/codedocs/reference/writing.md` |
 | Insight | Something the user told the docs, kept as theirs through every rewrite. | `skills/codedocs/reference/add.md` |
 | Language pack | The import patterns and resolution rules for one language. | `tool/links.go#linksFor` |
 | Last synced | The commit the docs describe, recorded by `mark-synced`. | `tool/cmds.go#cmdMarkSynced` |
 | Launcher | The script the skill runs, which finds or downloads the binary and runs it. | `skills/codedocs/bin/codedocs`, `skills/codedocs/bin/codedocs.ps1` |
+| Layer | A tier in the flow view (UI, API, services, data, or the repo's own), from `.codedocs/layers.yml`, a component's `layer`, or file names. | `tool/flows.go#heuristicLayer` |
 | Locked | A page humans own; the agent never rewrites it. | `skills/codedocs/SKILL.md` |
 | Manifest | manifest.json: the index of pages, links and resolved symbols the viewer runs on. | `tool/pages.go#buildManifest` |
 | Repo context | The file set and per-ecosystem resolution rules imports are resolved against. | `tool/links.go#repoCtx` |
-| Span | The first and last line of a definition (with its doc comment), stored in the manifest's `spans`. | `tool/spans.go#symbolSpan` |
 | Skill | The markdown instructions the agent follows for each `/codedocs` command. | `skills/codedocs/SKILL.md` |
+| Span | The first and last line of a definition (with its doc comment), stored in the manifest's `spans`. | `tool/spans.go#symbolSpan` |
 | Topic | A page for one subject that spans the structure, written for admins, developers or both. | `skills/codedocs/reference/add.md` |
+| Unit | A function, method, class or route handler as the flow view draws it; a flow's hops go from unit to unit. | `tool/flows.go#extractUnits` |

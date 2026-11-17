@@ -257,6 +257,7 @@
       renderer: {
         code({ text, lang }) {
           if ((lang || '').trim() === 'mermaid') return `<div class="diagram mermaid-src">${esc(text)}</div>`;
+          if ((lang || '').trim() === 'flowgraph') return flowgraphHtml(text);
           return false;
         },
         codespan({ text }) {
@@ -290,6 +291,37 @@
         },
       },
     });
+  }
+  // A ```flowgraph block on a flow page: the steps the flow view draws, one per line as
+  // "unit | label | effect", "branch | label | target", or a "key: value" header line.
+  const EFFECT_LABEL = { 'db-read': 'reads the database', 'db-write': 'writes the database', external: 'calls out', 'disk-write': 'writes to disk', queue: 'queues', cache: 'uses the cache' };
+  function flowgraphHtml(text) {
+    let id = currentPageId.split('/').pop();
+    const items = [];
+    for (const raw of text.split('\n')) {
+      const l = raw.trim();
+      if (!l || l.startsWith('//')) continue;
+      const kv = l.match(/^(id|name|color|lens|parent):\s*(.*)$/i);
+      if (kv && !l.includes('|')) { if (kv[1].toLowerCase() === 'id') id = kv[2].trim(); continue; }
+      const [unit, label = '', extra = ''] = l.split('|').map(s => s.trim());
+      if (unit === 'branch') { items.push({ branch: true, label, target: extra }); continue; }
+      let u = unit;
+      const tick = u.match(/^`(.*)`$/);
+      if (tick) u = refHtml(tick[1]) || `<code>${esc(tick[1])}</code>`;
+      else u = `<span class="fg-unit">${esc(u)}</span>`;
+      const effect = extra || (/^external\s/.test(unit) ? 'external' : '');
+      items.push({ unit: u, label, effect });
+    }
+    id = id.replace(/[^A-Za-z0-9_.:/$-]+/g, '-').replace(/^[-./:$_]+|[-./:$_]+$/g, '') || 'x';
+    // A branch leaves from the step above it.
+    const steps = [];
+    for (const x of items) {
+      if (!x.branch) { steps.push({ ...x, branches: [] }); continue; }
+      if (steps.length) steps[steps.length - 1].branches.push(x);
+    }
+    const li = steps.map(x => `<li class="fg-step"><span class="fg-label">${marked.parseInline(esc(x.label))}</span> <span class="fg-where">${x.unit}</span>${x.effect ? ` <span class="fg-effect fx-${esc(x.effect)}">${esc(EFFECT_LABEL[x.effect] || x.effect)}</span>` : ''}${x.branches.map(b => `<div class="fg-branch"><span class="fg-arrow">↳</span> ${esc(b.label || 'Branch')}${b.target ? ` <span class="muted">→ ${esc(b.target)}</span>` : ''}</div>`).join('')}</li>`).join('');
+    const link = M.flowgraph ? ` <a href="#/flowview/flow-${esc(id)}">See it in the flow view →</a>` : '';
+    return `<div class="flowgraph"><div class="fg-head">Flow graph · ${steps.length} step${steps.length === 1 ? '' : 's'}${link}</div><ol>${li}</ol></div>`;
   }
   function tagInferred(root) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.nodeValue.includes('(inferred)') && !n.parentElement.closest('code,pre,.callout-title') ? 1 : 3 });
@@ -676,15 +708,30 @@
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g).push(p);
     }
-    let html = '';
+    // Each section is a heading that opens it; only one is open at a time, and going to a page
+    // opens the section it's in (markActive).
+    const section = (key, title, links) => `<div class="nav-group" data-g="${esc(key)}"><h4><button type="button" aria-expanded="false" aria-controls="ng-${esc(key)}">${esc(title)}</button></h4><div class="nav-links" id="ng-${esc(key)}">${links}</div></div>`;
     const start = groups.get('Start here') || [];
-    html += `<div class="nav-group"><h4>Start here</h4>${start.map(navLink).join('')}<a href="#/map" data-id="map"><span class="dot" style="${kindVar('map')}"></span>Map</a></div>`;
-    for (const [g, list] of groups) if (g !== 'Start here') html += `<div class="nav-group"><h4>${g}</h4>${list.map(navLink).join('')}</div>`;
+    let html = section('start', 'Start here', start.map(navLink).join('') + `<a href="#/map" data-id="map"><span class="dot" style="${kindVar('map')}"></span>Map</a>${M.flowgraph ? `<a href="#/flowview" data-id="flowview"><span class="dot" style="${kindVar('flow')}"></span>Flow view</a>` : ''}`);
+    for (const [g, list] of groups) if (g !== 'Start here') html += section(g.toLowerCase().replace(/[^a-z0-9]+/g, '-'), g, list.map(navLink).join(''));
     $('#nav').innerHTML = html;
+    $('#nav').querySelectorAll('.nav-group h4 button').forEach(b => b.onclick = () => {
+      const g = b.closest('.nav-group');
+      openSection(g.classList.contains('open') ? null : g);
+    });
+    openSection($('#nav .nav-group'));
+  }
+  function openSection(g) {
+    document.querySelectorAll('#nav .nav-group').forEach(x => {
+      x.classList.toggle('open', x === g);
+      x.querySelector('h4 button').setAttribute('aria-expanded', String(x === g));
+    });
   }
   const navLink = p => `<a href="#/${esc(p.id)}" data-id="${esc(p.id)}"><span class="dot" style="${kindVar(p.kind)}"></span>${esc(p.title)}</a>`;
   function markActive(id) {
-    document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.id === id));
+    let at = null;
+    document.querySelectorAll('#nav a').forEach(a => { const on = a.dataset.id === id; a.classList.toggle('active', on); if (on) at = a.closest('.nav-group'); });
+    if (at) openSection(at);
   }
   const pageLink = id => { const p = byId.get(id); return p ? `<li><a href="#/${esc(id)}"><span class="dot" style="${kindVar(p.kind)}"></span>${esc(p.title)}</a></li>` : ''; };
 
@@ -699,6 +746,7 @@
       if (p.concerns?.length) rel.push(['Concerns that apply', p.concerns]);
       if (p.decisions?.length) rel.push(['Decisions', p.decisions]);
     } else if (p.components?.length) rel.push(['Components involved', p.components]);
+    if (p.graph && M.flowgraph) parts.push(`<section class="rail-flowview"><a href="#/flowview/flow-${esc(p.graph)}">See this flow in the flow view →</a></section>`);
     const citing = M.pages.filter(q => q.kind === 'decision' && q.id !== p.id && (q.refs || []).some(r => (p.refs || []).includes(r))).map(q => q.id).filter(id => !(p.decisions || []).includes(id));
     if (p.kind !== 'decision' && citing.length && p.kind !== 'component') rel.push(['Related decisions', citing.slice(0, 6)]);
     for (const [t, ids] of rel) parts.push(`<section class="rel"><h5>${t}</h5><ul>${ids.map(pageLink).join('')}</ul></section>`);
@@ -991,6 +1039,28 @@
     else window.scrollTo(0, 0);
   }
 
+  // The glass layers view (flowview.html) in a frame. Its "Open in code viewer" links come back
+  // here as messages, so they open in the code panel rather than leaving the docs.
+  function showFlowView(frag) {
+    markActive('flowview');
+    currentPageId = '';
+    $('#rail').innerHTML = '';
+    $('#main').classList.add('wide', 'flowview');
+    document.title = `Flow view · ${M.project}`;
+    const hash = frag ? '#' + frag : '';
+    const fr = $('#page iframe.flowview');
+    if (fr) { if (fr.contentWindow.location.hash !== hash) fr.contentWindow.location.hash = hash; return; }
+    $('#page').innerHTML = `<iframe class="flowview" title="Flow view" src="flowview.html?embed${API ? '&code=1' : ''}${hash}"></iframe>`;
+  }
+  window.addEventListener('message', e => {
+    const fr = $('#page iframe.flowview');
+    const d = e.data;
+    if (!fr || e.source !== fr.contentWindow || !d || d.codedocs !== 1) return;
+    if (d.type === 'open-code' && API && typeof d.file === 'string') showCode(d.file, d.line || undefined, d.end || undefined);
+    else if (d.type === 'open-page' && typeof d.ref === 'string' && byId.has(d.ref)) location.hash = '#/' + d.ref;
+    else if (d.type === 'hash' && typeof d.hash === 'string') history.replaceState(null, '', '#/flowview' + (d.hash ? '/' + d.hash.replace(/^#/, '') : ''));
+  });
+
   function showHome() {
     const ov = M.pages.find(p => p.kind === 'overview');
     if (ov) return showPage(ov.id);
@@ -1076,6 +1146,8 @@
     document.body.classList.remove('nav-open', 'rail-open');
     $('#page').style.maxWidth = '';
     const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
+    if (h === 'flowview' || h.startsWith('flowview/')) return showFlowView(h.slice(9));
+    $('#main').classList.remove('flowview');
     if (!h) return showHome();
     if (h === 'map') return showMap();
     if (h.startsWith('search/')) return showSearch(h.slice(7));

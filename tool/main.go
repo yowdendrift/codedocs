@@ -32,6 +32,8 @@ Usage: codedocs <command> [options]   (run from the repo root)
   export          FOLDER [--github OWNER/REPO] [--ref COMMIT] [--source-url URL --web-url URL]
                                                  Static copy for any web host; the code panel loads
                                                  source from GitHub (default: origin, at the synced commit)
+  flows           [--scan] [--granularity symbol|file] [--json]
+                                                 Write the flow graph and the flow view (--scan: what to trace)
   find            TERM… [--json]                 Where a subject lives: folders, files and definitions
   links           [FILE] [--json]                Code-panel links: per-language summary, or one file's links
   stop            [--all]                        Stop this repo's viewer (or every running one)
@@ -42,20 +44,22 @@ looks for docs/docs.config.json, then docs/codebase/docs.config.json.
 `
 
 type options struct {
-	dir       string
-	project   string
-	port      string
-	depth     string
-	json      bool
-	guidance  bool
-	offline   bool
-	open      bool
-	all       bool
-	github    string
-	ref       string
-	sourceURL string
-	webURL    string
-	pos       []string
+	dir         string
+	project     string
+	port        string
+	depth       string
+	json        bool
+	guidance    bool
+	offline     bool
+	open        bool
+	all         bool
+	github      string
+	ref         string
+	sourceURL   string
+	webURL      string
+	scan        bool
+	granularity string
+	pos         []string
 }
 
 func parseArgs(args []string) options {
@@ -96,6 +100,10 @@ func parseArgs(args []string) options {
 			o.sourceURL = val()
 		case "--web-url":
 			o.webURL = val()
+		case "--scan":
+			o.scan = true
+		case "--granularity":
+			o.granularity = val()
 		default:
 			if strings.HasPrefix(a, "--") {
 				die("unknown option " + a)
@@ -141,6 +149,8 @@ func main() {
 		cmdExport(o)
 	case "links":
 		cmdLinks(o)
+	case "flows":
+		cmdFlows(o)
 	case "find":
 		cmdFind(o)
 	case "stop", "shutdown":

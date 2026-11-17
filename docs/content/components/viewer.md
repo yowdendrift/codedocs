@@ -4,7 +4,7 @@ summary: The single-page web app people read the docs in: navigation, markdown w
 order: 70
 paths: [tool/assets/**, tool/vendor.sh]
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-17
 ---
 # Viewer
 
@@ -34,7 +34,9 @@ reads variables, so a theme can't break the layout and an upgrade never overwrit
 ### Pages and markdown
 
 `tool/assets/index.html#init` loads the manifest, detects whether a code panel is available,
-builds the sidebar (`tool/assets/index.html#buildNav`) and routes. `tool/assets/index.html#showPage`
+builds the sidebar (`tool/assets/index.html#buildNav`): one section per page kind, opened by its
+heading, one open at a time. Going to a page opens the section it's in
+(`tool/assets/index.html#markActive`). Then it routes. `tool/assets/index.html#showPage`
 renders a page with marked, using custom renderers set in `tool/assets/index.html#setupMarked`:
 inline code that matches a code ref becomes a link (`tool/assets/index.html#refHtml`), callouts
 like `[!INFERRED]` and `[!INSIGHT]` get their styles, and `(inferred)` in prose is tagged
@@ -76,6 +78,15 @@ anything that looks like a call. Clicking one runs `tool/assets/index.html#expan
 looks up the definition and inserts the callee's body under that line, so a reader can follow
 the code down without leaving the page. Several matches, or a body over 400 lines, open in the
 code panel instead.
+
+### Flow view
+
+When the docs have a flow graph, the sidebar gets a **Flow view** entry. The
+`#/flowview/<deep link>` route (`tool/assets/index.html#showFlowView`) shows the [flow
+view](flow-view.md)'s own page, flowview.html, in a frame, and listens for its messages:
+"Open in code viewer" opens the code panel, a flow name opens its page, and the frame's deep
+link is mirrored into the URL so it can be shared. Flow pages render their `flowgraph` block as
+a numbered list with a link into the view (`tool/assets/index.html#flowgraphHtml`).
 
 ### Where code comes from
 

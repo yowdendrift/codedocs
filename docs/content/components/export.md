@@ -4,7 +4,7 @@ summary: codedocs export: writes the docs as a static site any web host can serv
 order: 60
 paths: [tool/export.go]
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 # Static export
 
@@ -27,6 +27,7 @@ code/index.json                           source URL, web URL, commit, file list
 code/defs.json                            name -> definitions, loaded on first Ctrl+click
 code/callers.json                         "file#Symbol" -> call sites, for symbols the docs name
 code/meta/<path>.json                     per file: import links, where imported names live
+flowview.html, flowgraph.json, .js        the flow view and its graph, when the docs have one
 ```
 
 The source URL is `raw.githubusercontent.com/<owner>/<repo>/<commit>/<subfolder>/`. Pinning a
@@ -60,6 +61,13 @@ manifest entry's `syms`), with `tool/callers.go#findCallers`, so code/callers.js
 lines of symbols those links point at, so following an import lands on the right line without a
 server. Files with nothing to say get no meta file; code/index.json lists the ones that do, so
 the viewer never requests a missing file.
+
+### The flow view
+
+`tool/export.go#exportGraph` builds the [flow graph](flow-view.md) from the flow pages, with
+file links pointing at the forge's website, since the export has no repo beside it. With no
+`flowgraph` blocks it copies an existing flowgraph.json. A graph with problems is left out with
+a message rather than failing the export, so the docs still publish.
 
 ### Warnings
 

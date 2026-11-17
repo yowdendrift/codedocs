@@ -1,0 +1,23 @@
+# Layers for the flow view (codedocs flows), top to bottom.
+agent:            # what the agent reads: the skill and its guides
+  - skills/**
+ui:               # what runs in the browser
+  - tool/assets/**
+  - flowview/src/**
+api:              # how the tool is entered: the command line and the local server
+  - tool/main.go
+  - tool/serve.go
+svc:              # the tool's work
+  - tool/**
+ship:             # how it's built, released and installed
+  - .claude-plugin/**
+  - .github/**
+  - scripts/**
+  - build.sh
+  - build.ps1
+  - install.ps1
+ignore:
+  - example/**
+  - docs/design/**
+  - flowview/scripts/**
+  - flowview/build.mjs

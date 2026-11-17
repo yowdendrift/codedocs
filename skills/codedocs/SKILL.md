@@ -1,7 +1,7 @@
 ---
 name: codedocs
 description: Codebase documentation for humans (not Claude Docs documents). Documents a codebase so a person can understand it, as layered markdown docs (overview, components, flows, concerns, decisions, glossary, gotchas) read through an HTML viewer with diagrams, a mind map and a code panel. Also keeps the docs current after changes, checks them for drift, explains a change in terms of the docs, and restyles the viewer.
-argument-hint: "init | add <subject|insight> | update [range] | check | explain [range|branch] | style <description> | upgrade | links | serve | stop | export [folder] | status"
+argument-hint: "init | add <subject|insight> | update [range] | check | explain [range|branch] | flows | style <description> | upgrade | links | serve | stop | export [folder] | status"
 disable-model-invocation: true
 allowed-tools:
   - Bash("${CLAUDE_SKILL_DIR}/bin/codedocs" *)
@@ -36,6 +36,7 @@ plus the shared references it tells you to read.
 | `upgrade` | `<skill>/reference/upgrade.md` | Move a repo's docs to the installed skill version |
 | `links` | `<skill>/reference/links.md` | Make the code panel's import links work for this repo |
 | `add <subject \| insight>` | `<skill>/reference/add.md` | Document a chosen subject in depth (a topic page plus flows), or record something the user knows |
+| `flows` | `<skill>/reference/flows.md` | Trace the documented flows through the code and draw them in the 3D flow view |
 | `serve` | (below) | Start the viewer |
 | `stop` (or `shutdown`) | (below) | Stop the viewer |
 | `export [folder]` | (below) | Write the docs as a static site for GitHub Pages or any web host |
@@ -73,7 +74,7 @@ folder, say so and suggest `/codedocs init`. Then list the commands in the table
 `"<skill>/bin/codedocs" <command>` is a single executable (no Node or other runtime
 needed) that does all the deterministic work:
 `stats`, `install-viewer`, `manifest`, `check`, `affected`, `mark-synced`, `status`, `links`, `find`,
-`serve`, `stop`, `export`, `version`. Always quote the path (it may contain spaces or backslashes). Run it
+`flows`, `serve`, `stop`, `export`, `version`. Always quote the path (it may contain spaces or backslashes). Run it
 from the repo root. It finds the docs folder itself; pass `--dir <folder>` only if it can't.
 
 `bin/codedocs` is a small launcher script. The first time it runs on a machine it downloads the
