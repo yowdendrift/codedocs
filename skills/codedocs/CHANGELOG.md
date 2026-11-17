@@ -18,6 +18,8 @@ Each entry says what changed and whether it affects existing docs:
   The walk stops at entry handlers (what a CLI command or event listener hands off to), which
   start flows of their own. `flowgraph.json` units may carry `reached: {flow, via}`
   (optional; the schema stays version 1).
+- **viewer**: the flow view picks flows from a dropdown at the top instead of a row of buttons
+  along the bottom, which ran off the screen once a project had more than a handful of flows.
 - **viewer, tool**: function spans no longer stop at 400 lines (now 1000), and a TypeScript
   function whose return type is an object literal (`): { dispose(): void } {`) no longer ends
   on its first line. Both cut code panel highlights and flow code views short.

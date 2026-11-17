@@ -60,10 +60,12 @@ view with the error as the reason.
 
 ### 4. Pick a flow
 
-Choosing a flow (the `selectFlow` function inside `flowview/src/app.ts#start`, from the flow
-list or a unit card's flow buttons) fades everything else and animates the flow's line of light
+Choosing a flow (the `selectFlow` function inside `flowview/src/app.ts#start`, from the
+dropdown at the top or a unit card's flow buttons) fades everything else and animates the flow's line of light
 through its units, with branches as short stubs. The hash follows, so the URL is a link to that
-flow.
+flow. The dropdown is a native select so it holds any number of flows and works with a
+keyboard, a screen reader and a phone's own picker; its first option, "Choose a flow…", lets the
+flow go again. A dot beside it takes the chosen flow's colour.
 
 ### 5. The 2D view
 
