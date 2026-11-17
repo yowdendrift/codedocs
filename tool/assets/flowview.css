@@ -19,8 +19,17 @@ a{color:inherit}
 .lbl.stub{color:#9aa3b5;border-style:dashed;background:rgba(9,12,22,.55)}
 .lbl.ext{color:#ffc2a8;border-color:rgba(255,138,92,.45)}
 .lbl.cur{color:#fff;border-width:1px}
-header{position:fixed;top:0;left:0;right:0;padding:14px 16px 10px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none;background:linear-gradient(to bottom,rgba(7,10,18,.85),transparent)}
+header{position:fixed;top:0;left:0;right:0;padding:14px 16px 10px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:10px 12px;pointer-events:none;background:linear-gradient(to bottom,rgba(7,10,18,.85),transparent)}
 .brand h1{font-size:15px;font-weight:600}
+/* The flow picker, between the title and the coverage pill; full width under them on a phone. */
+.picker{pointer-events:auto;position:relative;display:inline-flex;align-items:center;gap:9px;min-width:0;width:min(380px,100%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 12px;cursor:pointer;transition:border-color .2s}
+.picker:hover,.picker:focus-within{border-color:rgba(160,180,255,.55)}
+.picker .sw{width:10px;height:10px;border-radius:50%;flex:none;background:#3a4560;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.picker select{appearance:none;-webkit-appearance:none;flex:1;min-width:0;background:none;border:0;color:var(--ink);font:500 13px var(--sans);padding:9px 20px 9px 0;cursor:pointer;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;outline:none}
+.picker select:disabled{color:var(--muted);cursor:default}
+.picker select option{background:#0f1424;color:var(--ink)}
+.picker::after{content:"";position:absolute;right:13px;top:50%;width:6px;height:6px;margin-top:-5px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);pointer-events:none}
+.picker:focus-within{outline:2px solid #9fb4ff;outline-offset:2px}
 .brand p{font-size:12px;color:var(--muted);margin-top:3px}
 .pill{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 11px;font:500 12px var(--mono);min-width:128px}
 .pill b{font-weight:500;color:#fff}
@@ -39,8 +48,6 @@ header{position:fixed;top:0;left:0;right:0;padding:14px 16px 10px;display:flex;j
 #caption .fname{font-weight:600;text-decoration:none;border-bottom:1px dotted rgba(200,214,255,.5)}
 #caption .fname:hover{border-bottom-style:solid}
 .row{display:flex;gap:8px;align-items:center}
-.chips{overflow-x:auto;scrollbar-width:none;padding-bottom:2px;-webkit-overflow-scrolling:touch}
-.chips::-webkit-scrollbar{display:none}
 button{font:500 13px var(--sans);color:var(--ink);background:rgba(20,26,44,.9);border:1px solid var(--line);border-radius:999px;padding:8px 13px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:7px;transition:background .2s,border-color .2s;flex:none}
 button:hover{border-color:rgba(160,180,255,.45)}
 button:focus-visible,a:focus-visible{outline:2px solid #9fb4ff;outline-offset:2px}
@@ -93,6 +100,7 @@ button .sw{width:16px;height:3px;border-radius:2px;display:inline-block}
 .fb-legend i{width:16px;height:3px;border-radius:2px;display:inline-block}
 /* Inside the docs viewer, the docs' own sidebar has the page title. */
 body.embedded header{padding-top:12px}
-@media (max-width:560px){.brand p{display:none}.pill{min-width:112px}#card{top:64px}}
+@media (max-width:560px){.brand p{display:none}.pill{min-width:112px}}
+@media (max-width:720px){.picker{order:3;width:100%}#card{top:116px}}
 @media (prefers-reduced-motion:reduce){.lbl,#card,.bar i,button{transition:none}}
 @media (max-width:760px){body.embedded header{padding-left:60px}}

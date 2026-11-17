@@ -535,17 +535,20 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   }
 
   // ---------- UI ----------
-  const chips = $('#chips'), cap = $('#caption'), card = $('#card');
-  function chip(text: string, color: string | null, fn: () => void) {
-    const b = document.createElement('button');
-    b.innerHTML = (color ? `<span class="sw" style="background:${esc(color)}"></span>` : '') + esc(text);
-    b.onclick = fn; chips.appendChild(b); return b;
-  }
-  // There's no "all flows" mode: drawn at once they tangle, and more so as a project grows.
-  // Nothing runs until a flow is picked; picking it again lets it go.
-  const flowChip = FL.map(r => chip(r.f.name, r.f.color, () => selectFlow(sel === r ? null : r)));
+  const cap = $('#caption'), card = $('#card');
+  // The flow picker: a native select at the top, so it scales to any number of flows and works
+  // with a keyboard, a screen reader and a phone's own picker. There's no "all flows" mode:
+  // drawn at once they tangle, and more so as a project grows. Nothing runs until a flow is
+  // picked; the first option lets it go again.
+  const picker = $<HTMLSelectElement>('#flowSel'), swatch = $('#flowSw');
+  picker.innerHTML = `<option value="">${FL.length ? 'Choose a flow…' : 'No documented flows yet'}</option>` +
+    FL.map((r, i) => `<option value="${i}">${esc(r.f.name)}</option>`).join('');
+  picker.disabled = !FL.length;
+  picker.onchange = () => selectFlow(picker.value === '' ? null : FL[+picker.value]);
   function refreshButtons() {
-    FL.forEach((r, i) => flowChip[i].classList.toggle('on', sel === r));
+    picker.value = sel ? String(sel.f.index) : '';
+    swatch.style.background = sel ? sel.f.color : '';
+    picker.title = sel ? sel.f.name : '';
     $('#btnGaps').classList.toggle('on', gaps);
     $('#btnLight').classList.toggle('on', lu.active);
     const bf = $<HTMLButtonElement>('#btnFocus');
@@ -570,8 +573,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       ensureSelected(r);
       r.run.t = 0; r.run.idx = reduced ? 0 : -1; r.run.hold = 0;
       if (reduced) staticCaption(r);
-      flowChip[r.f.index].scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    } else cap.innerHTML = FL.length ? `<span class="st">Pick a flow below to follow it.</span>` : `<span class="st">No documented flows yet.</span>`;
+    } else cap.innerHTML = FL.length ? `<span class="st">Choose a flow at the top to follow it.</span>` : `<span class="st">No documented flows yet.</span>`;
     if (focus) setFocus(!!r); // another flow slides into the column, or the column goes back
     if (!fromHash) setHash(r ? (FX ? 'focus-' : 'flow-') + r.f.id : '');
     refreshButtons();

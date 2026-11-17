@@ -15,12 +15,12 @@
 <div id="labels"></div>
 <header>
   <div class="brand"><h1>Flow view</h1><p>Drag to orbit, pinch or scroll to zoom, tap anything.</p></div>
+  <label class="picker"><i class="sw" id="flowSw"></i><select id="flowSel" aria-label="Flow to follow"></select></label>
   <div class="pill" aria-live="polite" title="On a flow: a step names it. Reached: a step calls it (found by name, so approximate)">Flow coverage <b id="covTxt">0%</b><span id="reachTxt"></span><div class="bar"><i id="reachBar"></i><i id="covBar"></i></div></div>
 </header>
 <div id="card" role="dialog" aria-label="Unit details"></div>
 <div id="sheet">
   <div id="caption" aria-live="polite"></div>
-  <div class="row chips" id="chips"></div>
   <div class="row">
     <button id="btnLight" title="Replay the documentation light-up">Light up</button>
     <button id="btnGaps" title="Highlight code that sits on no documented flow">Show gaps</button>
