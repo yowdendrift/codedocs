@@ -11,7 +11,7 @@ import (
 )
 
 // maxSpan caps a block so a mismatched brace can't turn one function into the rest of the file.
-const maxSpan = 400
+const maxSpan = 1000
 
 var indentLangs = set("py", "gd", "pyi")
 
@@ -171,6 +171,12 @@ func braceEnd(ls []string, line int, ext string) int {
 					return max(line, i)
 				}
 				if depth == 0 && body && c == '}' {
+					// A TypeScript return type written as an object literal, `): { dispose(): void } {`,
+					// closes before the body opens on the same line: keep going.
+					if rest := strings.TrimSpace(s[j+1:]); strings.HasSuffix(rest, "{") && !strings.HasPrefix(rest, "else") {
+						body = false
+						continue
+					}
 					return i + 1
 				}
 			case ';':

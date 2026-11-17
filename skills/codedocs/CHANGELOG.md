@@ -9,6 +9,26 @@ Each entry says what changed and whether it affects existing docs:
   leave it alone, so they never mark pages outdated.
 - **theme**: new variables in the default theme.css; `/codedocs upgrade` adds them to existing themes
 
+## 0.7.1 (2026-11-17)
+- **viewer, tool: reached code isn't a gap.** A flow names the hops that matter, not every
+  helper, so the flow view counted helpers under documented steps as undocumented.
+  `codedocs flows` now follows calls out of each flow's steps (by name, so approximate) and
+  marks the units a flow runs without naming as *reached*; they show dimmed rather than red,
+  the coverage pill adds "· N% reached", and a reached unit's card names its caller and flow.
+  The walk stops at entry handlers (what a CLI command or event listener hands off to), which
+  start flows of their own. `flowgraph.json` units may carry `reached: {flow, via}`
+  (optional; the schema stays version 1).
+- **viewer**: the flow view picks flows from a dropdown at the top instead of a row of buttons
+  along the bottom, which ran off the screen once a project had more than a handful of flows.
+- **viewer, tool**: function spans no longer stop at 400 lines (now 1000), and a TypeScript
+  function whose return type is an object literal (`): { dispose(): void } {`) no longer ends
+  on its first line. Both cut code panel highlights and flow code views short.
+- **tool**: `flows --scan` lists the **entry points no flow starts at or runs** (the flows still
+  to write) and names the units nothing names or reaches.
+- **guidance**: `/codedocs flows` covers the repo: a flow per uncovered entry point, no helper
+  hops added just for coverage, and unreached code reported as possible dead code. Additive, so
+  the page-guidance version is unchanged.
+
 ## 0.7.0 (2026-11-17)
 - **viewer: the flow view.** A 3D picture of the code as stacked glass layers (UI, API,
   services, data, or the repo's own), each documented flow drawn as a line of light through the

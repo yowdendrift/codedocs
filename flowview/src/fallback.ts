@@ -31,7 +31,7 @@ export function renderFallback(m: Model, L: Layout, host: HTMLElement, reason: s
   });
   m.units.forEach(u => {
     const p = pts[u.index], on = u.flows.length > 0, eff = u.kind !== 'code';
-    const cls = !on ? 'dark' : eff ? 'eff' : 'lit';
+    const cls = !on ? (u.reached ? 'reached' : 'dark') : eff ? 'eff' : 'lit';
     s += u.kind === 'code'
       ? `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="5" class="${cls}"><title>${esc(u.name)}</title></circle>`
       : `<rect x="${(+X(p.x) - 6).toFixed(1)}" y="${(+Y(p.y) - 6).toFixed(1)}" width="12" height="12" rx="${u.kind === 'external' ? 1 : 4}" class="${cls}" transform="rotate(${u.kind === 'external' ? 45 : 0} ${X(p.x)} ${Y(p.y)})"><title>${esc(u.name)}</title></rect>`;
@@ -39,7 +39,9 @@ export function renderFallback(m: Model, L: Layout, host: HTMLElement, reason: s
   });
   s += '</svg>';
   const pct = m.units.length ? Math.round(m.covered / m.units.length * 100) : 0;
+  const rpct = m.units.length ? Math.round((m.covered + m.reached) / m.units.length * 100) : 0;
   host.innerHTML = `<div class="fb-head"><b>${esc(m.graph.repo.name)}</b> · ${m.flows.length} flows · ${m.covered} of ${m.units.length} units on a documented flow (${pct}%)` +
+    (m.reached ? `, ${m.reached} more called from one (${rpct}% reached)` : '') +
     `<span>${esc(reason)} This is the side view as a still picture.</span></div><div class="fb-svg">${s}</div>` +
     `<div class="fb-legend">${m.flows.map(f => `<span><i style="background:${esc(f.color)}"></i>${esc(f.name)}</span>`).join('')}</div>`;
   host.hidden = false;

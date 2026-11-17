@@ -2,9 +2,9 @@
 title: Code intelligence
 summary: Works out what a source file imports, where names are defined and where they end, and roughly where they're called, across several languages, with patterns rather than parsers. Powers clickable imports, go-to-definition, a flow's Code view and find.
 order: 40
-paths: [tool/links.go, tool/defs.go, tool/find.go, tool/spans.go, tool/callers.go, tool/parity_test.go]
+paths: [tool/links.go, tool/defs.go, tool/find.go, tool/spans.go, tool/callers.go, tool/parity_test.go, tool/spans_test.go]
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-17
 ---
 # Code intelligence
 
@@ -67,8 +67,11 @@ against the viewer's copy.
 because then there's no body to show. Where the body ends is decided by
 `tool/spans.go#blockEnd`. For C-like languages, `tool/spans.go#braceEnd` matches brackets while
 skipping strings, comments, template literals and regex literals. For Python and GDScript,
-`tool/spans.go#indentEnd` follows indentation. A block is capped at 400 lines (`maxSpan`), so
-one mismatched brace can't swallow the rest of the file. `tool/spans.go#lineSpan` does the same
+`tool/spans.go#indentEnd` follows indentation. A block is capped at 1000 lines (`maxSpan`), so
+one mismatched brace can't swallow the rest of the file; real functions run longer than 400
+(`buildGraph` is about 420), which is why it isn't lower. A brace block that closes with more
+`{` to come on the same line (a TypeScript return type like `): { dispose(): void } {`) isn't
+the body, so the scan carries on to the real one. `tool/spans.go#lineSpan` does the same
 for a `file:N` ref: the statement or block that starts on that line.
 
 ### Approximate callers
@@ -101,7 +104,8 @@ static sites, and by the `find` and `links` commands.
   an interface, a callback or a re-export are missed.
 - Extents come from bracket matching. Code that confuses it (a `/` the heuristic in
   `tool/spans.go#regexStarts` misjudges, or a bracket inside an unusual string syntax) can
-  make a body stop early or run on, up to the 400-line cap.
+  make a body stop early or run on, up to the 1000-line cap. A wrong end also hides calls from
+  [reach](flow-view.md), which reads each unit's own lines.
 - The static viewer has JavaScript copies of `rankDefinitions` and the glob rules, so exported
   sites behave like `serve`. `tool/parity_test.go#TestViewerParity` runs both versions on the same
   cases and fails on any difference, so change them together and run `go test ./...` (it needs

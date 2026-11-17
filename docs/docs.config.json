@@ -1,12 +1,12 @@
 {
-  "skill_version": "0.6.0",
+  "skill_version": "0.7.1",
   "project": "codedocs",
-  "repo_root_abs": "",
+  "repo_root_abs": "C:/work/docs-skill",
   "editor": "vscode",
   "ignore": [
     "example/**"
   ],
-  "last_synced": "95eccde918bd5a03410ee4f25cfd759229a9a6b6",
-  "last_synced_at": "2026-11-17T09:43:07Z",
+  "last_synced": "8e112578dbc37868d6550500d14bae77ff18f958",
+  "last_synced_at": "2026-11-17T23:31:14Z",
   "created": "2026-10-29"
 }

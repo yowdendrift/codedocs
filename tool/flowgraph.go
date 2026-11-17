@@ -42,14 +42,22 @@ type GDistrict struct {
 }
 
 type GUnit struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Kind     string `json:"kind"`
-	Layer    string `json:"layer,omitempty"`
-	District string `json:"district,omitempty"`
-	File     string `json:"file,omitempty"`
-	Lines    []int  `json:"lines,omitempty"`
-	DocRef   string `json:"docRef,omitempty"`
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	Kind     string  `json:"kind"`
+	Layer    string  `json:"layer,omitempty"`
+	District string  `json:"district,omitempty"`
+	File     string  `json:"file,omitempty"`
+	Lines    []int   `json:"lines,omitempty"`
+	DocRef   string  `json:"docRef,omitempty"`
+	Reached  *GReach `json:"reached,omitempty"`
+}
+
+// GReach: a code unit no step names, but a flow runs: Flow's steps call Via, which (perhaps
+// through others) calls this unit. Set by computeReach.
+type GReach struct {
+	Flow string `json:"flow"`
+	Via  string `json:"via"`
 }
 
 type GFlow struct {
@@ -162,8 +170,25 @@ func validateGraph(g *Graph) []string {
 		}
 	}
 	flows := map[string]bool{}
+	onFlow := map[string]bool{}
 	for _, f := range g.Flows {
 		flows[f.ID] = true
+		for _, s := range f.Steps {
+			onFlow[s.Unit] = true
+		}
+	}
+	for _, u := range g.Units {
+		if r := u.Reached; r != nil {
+			if !flows[r.Flow] {
+				bad("unit %q is reached by flow %q, which doesn't exist", u.ID, r.Flow)
+			}
+			if !units[r.Via] || r.Via == u.ID {
+				bad("unit %q is reached via unit %q, which doesn't exist", u.ID, r.Via)
+			}
+			if onFlow[u.ID] {
+				bad("unit %q is a step of a flow, so it can't also be marked reached", u.ID)
+			}
+		}
 	}
 	seen := map[string]bool{}
 	for i, f := range g.Flows {

@@ -14,6 +14,7 @@ export interface FlowGraph {
     id: string; name: string; kind: UnitKind;
     layer?: string; district?: string;
     file?: string; lines?: [number, number]; docRef?: string;
+    reached?: { flow: string; via: string }; // on no flow, but a flow's steps call it (approximate)
   }[];
   flows: {
     id: string; name: string; lens?: 'system' | 'ui'; color?: string | null;

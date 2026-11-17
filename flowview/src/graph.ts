@@ -19,6 +19,9 @@ export interface Unit {
   lines?: [number, number];
   docRef?: string;
   flows: Flow[];             // distinct flows through it, in flow order
+  // On no flow, but called from one: the flow (null if the view leaves that flow out) and the
+  // unit that calls it. The builder works it out by name matching, so it's approximate.
+  reached: { flow: Flow | null; flowName: string; via: Unit } | null;
 }
 
 export interface Step { unit: Unit; label: string; effect?: Effect }
@@ -40,6 +43,7 @@ export interface Model {
   byId: Map<string, Unit>;
   flows: Flow[];
   covered: number;           // units on at least one flow
+  reached: number;           // units on none, but called from one
 }
 
 export class GraphError extends Error {}
@@ -58,7 +62,7 @@ export function buildModel(g: FlowGraph): Model {
       district: u.kind === 'external' ? null : u.district ?? null,
       districtName: u.kind === 'external' ? 'outside the system' : districtName.get(u.district!) ?? '',
       layerName: u.kind === 'external' ? 'External' : layerName.get(u.layer!) ?? '',
-      file: u.file, lines: u.lines, docRef: u.docRef, flows: [],
+      file: u.file, lines: u.lines, docRef: u.docRef, flows: [], reached: null,
     };
   });
   const byId = new Map(units.map(u => [u.id, u]));
@@ -83,7 +87,15 @@ export function buildModel(g: FlowGraph): Model {
   }
   if (problems.length) throw new GraphError('flowgraph.json has references that don’t resolve:\n' + problems.slice(0, 8).join('\n') + (problems.length > 8 ? `\n…and ${problems.length - 8} more` : ''));
   for (const f of flows) for (const s of f.steps) if (!s.unit.flows.includes(f)) s.unit.flows.push(f);
-  return { graph: g, units, byId, flows, covered: units.filter(u => u.flows.length).length };
+  // Reached: kept only for units the view shows on no flow, with a caller that resolves.
+  const flowById = new Map(flows.map(f => [f.id, f]));
+  const flowName = new Map(g.flows.map(f => [f.id, f.name]));
+  g.units.forEach((r, i) => {
+    const via = r.reached && byId.get(r.reached.via);
+    if (r.reached && via && !units[i].flows.length)
+      units[i].reached = { flow: flowById.get(r.reached.flow) ?? null, flowName: flowName.get(r.reached.flow) ?? r.reached.flow, via };
+  });
+  return { graph: g, units, byId, flows, covered: units.filter(u => u.flows.length).length, reached: units.filter(u => u.reached).length };
 }
 
 // Deterministic 0..1 from a string: flow stagger, dust, anything that must repeat run to run.

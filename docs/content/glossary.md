@@ -2,7 +2,7 @@
 title: Glossary
 summary: The words this project uses, and what each one means here.
 generated_with: 0.1.0
-updated: 2026-11-13
+updated: 2026-11-17
 ---
 # Glossary
 
@@ -32,6 +32,7 @@ updated: 2026-11-13
 | Layer | A tier in the flow view (UI, API, services, data, or the repo's own), from `.codedocs/layers.yml`, a component's `layer`, or file names. | `tool/flows.go#heuristicLayer` |
 | Locked | A page humans own; the agent never rewrites it. | `skills/codedocs/SKILL.md` |
 | Manifest | manifest.json: the index of pages, links and resolved symbols the viewer runs on. | `tool/pages.go#buildManifest` |
+| Reached | A unit no flow step names but a flow calls, found by following calls out of the steps. Shown dimmed in the flow view instead of as a gap. Approximate. | `tool/reach.go#computeReach` |
 | Repo context | The file set and per-ecosystem resolution rules imports are resolved against. | `tool/links.go#repoCtx` |
 | Skill | The markdown instructions the agent follows for each `/codedocs` command. | `skills/codedocs/SKILL.md` |
 | Span | The first and last line of a definition (with its doc comment), stored in the manifest's `spans`. | `tool/spans.go#symbolSpan` |

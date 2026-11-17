@@ -83,7 +83,17 @@
           "maxItems": 2,
           "description": "First and last line of the unit in its file."
         },
-        "docRef": { "$ref": "#/$defs/docRef" }
+        "docRef": { "$ref": "#/$defs/docRef" },
+        "reached": {
+          "type": "object",
+          "required": ["flow", "via"],
+          "additionalProperties": false,
+          "description": "A code unit no step names but a flow runs: the flow's steps call `via`, which (perhaps through others) calls this unit. Approximate: found by name matching.",
+          "properties": {
+            "flow": { "$ref": "#/$defs/id" },
+            "via": { "$ref": "#/$defs/id" }
+          }
+        }
       },
       "if": { "properties": { "kind": { "const": "external" } } },
       "then": { "not": { "anyOf": [{ "required": ["layer"] }, { "required": ["district"] }] } },
