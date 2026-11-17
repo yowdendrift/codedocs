@@ -2,7 +2,7 @@
 title: Flow view
 summary: The 3D picture of a codebase as stacked glass layers with each documented flow drawn through it, and the tool command that builds the graph it draws from the docs.
 order: 75
-paths: [tool/flows.go, tool/flows_cmd.go, tool/flowgraph.go, tool/flowgraph_test.go, flowview/**, schema/**, .codedocs/**]
+paths: [tool/flows.go, tool/flows_cmd.go, tool/flowgraph.go, tool/flowgraph_test.go, tool/reach.go, tool/reach_test.go, flowview/**, schema/**, .codedocs/**]
 layer: svc
 generated_with: 0.1.0
 updated: 2026-11-17
@@ -73,14 +73,37 @@ name that says a tier, then extension). Files nothing places go on the services 
 reported. Districts are the owning component, or the folder. Above 2000 units the graph drops
 to one unit per file so the view stays fast.
 
+### Reach
+
+A flow names the hops that matter, not every helper they call, so "on no flow" overstates what
+is undocumented. `tool/reach.go#computeReach` runs at the end of `buildGraph` (function
+granularity only) and marks the code a flow runs without naming: `reached: {flow, via}` on the
+unit. `tool/reach.go#callEdges` finds calls in each unit's own lines (a nested method's lines
+count as the method's) as a name followed by `(`, matched to units of that name in files the
+caller can see (`tool/reach.go#sourceVisibility`: its own file, its Go package, the files it
+imports, by the code panel's import resolution). `tool/reach.go#reachFrom` walks those edges
+breadth first from each flow's steps, in flow order, so a unit is credited to the first flow that
+reaches it and to the unit that called it.
+
+It's approximate in both directions, like [callers](code-intelligence.md): a same-named function
+in a visible file can be matched wrongly, and a function only passed as a value (an event
+handler, a callback) isn't followed. The walk stops at entry handlers
+(`tool/reach.go#entryTargets`: what a CLI `case` line or an event listener hands off to),
+because otherwise one flow that names `main` or a page's `init` would reach every command and
+every click handler; those start flows of their own. The view dims reached units instead of
+showing them as gaps, and the coverage pill adds "· N% reached".
+
 ### The command
 
 `tool/flows_cmd.go#cmdFlows` builds, validates, prints a summary and writes the files
 (`tool/flows_cmd.go#writeFlowView`), or prints the problems and writes nothing.
 `tool/flows_cmd.go#cmdFlowsScan` (`--scan`) is the agent's survey: unclassified files, flow
 pages and which blocks are stale since the last written graph's commit, routes and other entry
-points, side-effect candidates credited to the smallest unit containing each line, and
-uncovered units by district.
+points, side-effect candidates credited to the smallest unit containing each line, **entry
+points no flow starts at or runs** (a route, CLI command or event listener whose handler is
+neither a step nor reached: the list of flows still to write), and the units nothing names or
+reaches, by district, with their names (undocumented paths, or dead code). The summary prints
+both figures: units on a flow, and units on or reached from one.
 
 ### Layout
 

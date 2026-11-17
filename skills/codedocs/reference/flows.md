@@ -20,7 +20,10 @@ format is under "Flow graph blocks") if you haven't this session.
    - route handlers, other entry points (UI events, CLI commands, jobs, queue consumers);
    - **side-effect candidates**: lines that look like database reads and writes, outside calls,
      disk writes, queues and caches, credited to the function they're in;
-   - units on no flow, by district: the gaps.
+   - **entry points no flow starts at or runs**: routes, CLI commands and event listeners whose
+     handler no step names and no flow calls. Each is a flow still to write (or part of one);
+   - units nothing names or reaches, by district, with their names: the real gaps. Units a flow
+     calls without naming are counted as *reached* (the view dims them) and left out.
    No flow pages yet: stop and suggest `/codedocs init` or `/codedocs add <subject>`; the flow
    view draws documented flows only.
 2. **Layers.** If the scan put files on the wrong layer or on none, write `.codedocs/layers.yml`
@@ -69,7 +72,16 @@ format is under "Flow graph blocks") if you haven't this session.
      twelve hops is typical. A unit can appear more than once (a service called twice).
    - **Header lines** (optional, before the steps): `id:` (defaults to the page's file name),
      `name:` (defaults to the title), `color: #rrggbb` (defaults to a palette colour).
-4. **Build it.** `T flows`. It resolves every hop, validates the graph and writes
+4. **Cover the repo.** The goal is a flow for every way into the code, not every possible path
+   through it (branches multiply; one flow per entry point or user action is the useful
+   version). Go down the scan's *entry points no flow starts at or runs* and write a flow page
+   (with a block) for each, or fold it into an existing flow when it's the same journey.
+   Group trivial ones (static asset routes, a dialog closing) under the flow that uses them,
+   as prose or a branch. Don't add helper hops just to raise coverage: reach already counts
+   what the steps call, and a flow of 30 hops is unreadable. When code is left that nothing
+   names, reaches or could start from, tell the user it may be dead code rather than
+   documenting it.
+5. **Build it.** `T flows`. It resolves every hop, validates the graph and writes
    `flowgraph.json` (plus `flowgraph.js` and the viewer files) into the docs folder. If it
    reports problems, fix the block lines it points to and run it again; it writes nothing until
    every hop resolves:
@@ -80,9 +92,10 @@ format is under "Flow graph blocks") if you haven't this session.
    - *unclassified files* are a warning: add them to `.codedocs/layers.yml`.
    More than 2000 units switches the graph to whole files (`--granularity symbol` forces
    functions); refs still work, each hop lands on its file.
-5. **Check the result.** `T manifest`, then `T check`, which also checks the blocks' code refs.
-6. **Report** in a few lines: flows drawn, coverage (documented units / all), the biggest gaps
-   by district, and how to open it: the **Flow view** entry in the viewer's sidebar (`/codedocs
+6. **Check the result.** `T manifest`, then `T check`, which also checks the blocks' code refs.
+7. **Report** in a few lines: flows drawn, coverage (units on a flow / all, and on or reached
+   from one, as `T flows` prints them), entry points still without a flow, the biggest gaps by
+   district, and how to open it: the **Flow view** entry in the viewer's sidebar (`/codedocs
    serve`), or `flowview.html` in the docs folder, which also works opened as a file.
 
 ## Refreshing (from `/codedocs update`)

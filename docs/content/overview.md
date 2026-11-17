@@ -2,7 +2,7 @@
 title: codedocs
 summary: A skill and a small tool that document a codebase for the person who has to understand it, and a viewer to read the result in.
 generated_with: 0.1.0
-updated: 2026-11-13
+updated: 2026-11-17
 ---
 # codedocs
 
@@ -77,6 +77,13 @@ release binaries and downloads the right one on first run.
 - [Installing and first run](flows/first-run.md): plugin install, then the binary download.
 - [Releasing a version](flows/release.md): a tag to published binaries.
 - [Publishing the docs as a static site](flows/publishing.md): how this site is built.
+- [Documenting a chosen subject](flows/add.md): `/codedocs add`, scoped with `codedocs find`.
+- [Reading the docs in the viewer](flows/reading.md): the manifest, the sidebar, a page and its diagrams.
+- [Reading a flow as code](flows/flow-code.md): a flow page's Code view, with calls to expand.
+- [Starting and stopping the viewer](flows/serve.md): `serve`, the state file, `stop`.
+- [Checking the docs](flows/check.md): what `codedocs check` looks for.
+- [Building the flow graph](flows/flow-graph.md): flow pages and the repo's code into flowgraph.json.
+- [Exploring the flow view](flows/explore-flows.md): the 3D layers, one flow, the 2D view.
 
 ## Rules that always hold
 
