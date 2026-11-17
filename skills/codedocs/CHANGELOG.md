@@ -9,7 +9,7 @@ Each entry says what changed and whether it affects existing docs:
   leave it alone, so they never mark pages outdated.
 - **theme**: new variables in the default theme.css; `/codedocs upgrade` adds them to existing themes
 
-## Unreleased
+## 0.7.0 (2026-11-17)
 - **viewer: the flow view.** A 3D picture of the code as stacked glass layers (UI, API,
   services, data, or the repo's own), each documented flow drawn as a line of light through the
   functions it passes, with side effects in coral and branches not taken as dashed stubs. Modes:
