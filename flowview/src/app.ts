@@ -106,7 +106,8 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     cache: new THREE.IcosahedronGeometry(0.42, 0),
     external: new THREE.OctahedronGeometry(0.62, 0),
   };
-  const C = { code: new THREE.Color('#dce6ff'), eff: new THREE.Color('#ff8a5c'), dark: new THREE.Color('#283042'), gap: new THREE.Color('#ff4d6d') };
+  // reach: code no step names but a flow calls, lit but dimmer than a step.
+  const C = { code: new THREE.Color('#dce6ff'), eff: new THREE.Color('#ff8a5c'), dark: new THREE.Color('#283042'), gap: new THREE.Color('#ff4d6d'), reach: new THREE.Color('#6f7da6') };
   const tmpC = new THREE.Color();
   // pos: the unit's home on its slab. show: where it's drawn, which moves between pos and its
   // place in the Focus view (from → to over mt 0..1). vis fades units the Focus view leaves out.
@@ -496,7 +497,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       else if (n.labelT > 0) p = 70;
       else if (lu.active) p = 0;
       else if (u.kind === 'external') p = 40;
-      else if (gaps) p = u.flows.length ? 0 : 30;
+      else if (gaps) p = u.flows.length || u.reached ? 0 : 30;
       else if (sel && u.flows.includes(sel.f)) {
         if (reduced || u.kind !== 'code') p = 50;
         else if (sel.f.steps[0].unit === u) p = 80;
@@ -507,7 +508,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     for (const [, i] of want.slice(0, innerWidth < 560 && !FX ? Math.round(MAX_LABELS * 0.4) : MAX_LABELS)) { // fewer on a phone, except one flow in Focus
       const n = un[i];
       const l = label('u:' + i, n.u.name, n.u.kind === 'external' ? 'ext' : 'node');
-      const isCur = cur === i, g = gaps && !n.u.flows.length && !lu.active;
+      const isCur = cur === i, g = gaps && !n.u.flows.length && !n.u.reached && !lu.active;
       l.el.classList.toggle('gap', g); l.el.classList.toggle('cur', isCur);
       l.el.style.borderColor = isCur && sel ? sel.f.color : '';
       if (FX && fe > 0.3) place(l, n.show, `translate(${n.u.kind === 'code' ? 16 : 30}px,${narrowScreen() ? '2px' : '-50%'})`);
@@ -558,7 +559,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   function stopLightUp() {
     if (!lu.active) return;
     lu.active = false; tubes.geometry.setDrawRange(0, Infinity);
-    setCoverage(m.covered / total);
+    fullCoverage();
   }
   function flowName(f: Flow) {
     return f.docRef ? `<a class="fname" href="${esc(H.pageHref(f.docRef))}" data-ref="${esc(f.docRef)}">${esc(f.name)}</a>` : `<b>${esc(f.name)}</b>`;
@@ -593,10 +594,11 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       `<span>${esc(r.f.steps[0].label)} → ${esc(r.f.steps[r.f.steps.length - 1].label)}</span>` + (effects ? `<span class="tag">${effects} side effect${effects > 1 ? 's' : ''}</span>` : '');
   }
   function gapsCaption() {
-    const n = total - m.covered;
+    const n = total - m.covered - m.reached;
+    const more = m.reached ? `<span class="st">${m.reached} more aren’t steps but are called from one, shown dimmed.</span>` : '';
     cap.innerHTML = n
-      ? `<span class="warn">${n} of ${total} code units sit on no documented flow.</span><span class="st">Undocumented paths, or dead code.</span>`
-      : `<span class="st">Every unit sits on a documented flow.</span>`;
+      ? `<span class="warn">${n} of ${total} units: no documented flow names or calls them.</span><span class="st">Undocumented paths, or dead code.</span>` + more
+      : `<span class="st">Every unit is on or called from a documented flow.</span>` + more;
   }
   function setGaps(on: boolean, fromHash = false) {
     if (focus) setFocus(false);
@@ -611,7 +613,13 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     if (!focus) { goView(b.dataset.view as View); return; }
     view = b.dataset.view as View; toggleFocus(false); // leaving the Focus view lands on this camera
   });
-  function setCoverage(r: number) { const p = Math.round(r * 100); $('#covTxt').textContent = p + '%'; $('#covBar').style.width = p + '%'; }
+  // r: units on a flow; reach: units on or called from one (the fainter bar behind it).
+  function setCoverage(r: number, reach = 0) {
+    const p = Math.round(r * 100), q = Math.max(p, Math.round(reach * 100));
+    $('#covTxt').textContent = p + '%'; $('#covBar').style.width = p + '%';
+    $('#reachTxt').textContent = q > p ? ` · ${q}% reached` : ''; $('#reachBar').style.width = q + '%';
+  }
+  const fullCoverage = () => setCoverage(m.covered / total, (m.covered + m.reached) / total);
   function hideCard() { card.classList.remove('on'); }
   function showCard(n: UN) {
     const u = n.u, k = KIND_NAME[u.kind];
@@ -619,7 +627,11 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     if (u.flows.length) {
       h += `<div class="sub">On ${u.flows.length} documented flow${u.flows.length > 1 ? 's (an interchange)' : ''}</div><div class="fl">` +
         u.flows.map(f => `<button class="mini" data-f="${f.index}"><i style="background:${esc(f.color)}"></i>${esc(f.name)}</button>`).join('') + '</div>';
-    } else h += `<div class="gapnote">No documented flow passes through this. Either a path codedocs hasn’t documented yet, or dead code.</div>`;
+    } else if (u.reached) {
+      const r = u.reached, f = r.flow;
+      h += `<div class="sub">Not a step of any flow, but called from <b>${esc(r.via.name)}</b>${f ? '' : ` on ${esc(r.flowName)}`} (found by name, so approximate)</div>` +
+        (f ? `<div class="fl"><button class="mini" data-f="${f.index}"><i style="background:${esc(f.color)}"></i>${esc(f.name)}</button></div>` : '');
+    } else h += `<div class="gapnote">No documented flow names or calls this. Either a path codedocs hasn’t documented yet, or dead code.</div>`;
     const href = H.codeHref(u);
     if (href) h += `<a class="code" href="${esc(href)}" target="_blank" rel="noopener">Open in code viewer →<span>${esc(u.file)}${u.lines ? ':' + u.lines[0] + '-' + u.lines[1] : ''}</span></a>`;
     if (u.docRef) h += `<a class="code doc" href="${esc(H.pageHref(u.docRef))}" data-ref="${esc(u.docRef)}">Read about it →</a>`;
@@ -641,7 +653,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     sel = null; gaps = false; hideCard(); setHash('');
     if (reduced) { // no animation: show where it ends
       un.forEach(n => n.color.copy(n.u.kind === 'code' ? C.code : C.eff));
-      setCoverage(m.covered / total); setGaps(true); return;
+      fullCoverage(); setGaps(true); return;
     }
     lu.active = true; lu.fi = 0; lu.p = 0; lu.pause = 0.5; lu.lit.clear();
     tubes.geometry.setDrawRange(0, 0); headVisible.fill(false);
@@ -666,7 +678,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     if (lu.p >= 1) {
       tubes.geometry.setDrawRange(0, r.start + r.count); headVisible[r.f.index] = false;
       lu.fi++; lu.p = 0; lu.pause = BETWEEN;
-      if (lu.fi >= FL.length) { lu.active = false; tubes.geometry.setDrawRange(0, Infinity); setGaps(true); }
+      if (lu.fi >= FL.length) { lu.active = false; tubes.geometry.setDrawRange(0, Infinity); fullCoverage(); setGaps(true); }
     }
   }
 
@@ -753,18 +765,18 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     const k = Math.min(1, dt * 6);
     const selF = sel?.f;
     for (const n of un) {
-      const u = n.u, lit = u.kind === 'code' ? C.code : C.eff, covered = u.flows.length > 0;
+      const u = n.u, lit = u.kind === 'code' ? C.code : C.eff, covered = u.flows.length > 0, reach = u.reached;
       let tgt: THREE.Color;
       if (lu.active) tgt = lu.lit.has(u.index) ? lit : C.dark;
-      else if (gaps) tgt = covered ? tmpC.copy(lit).lerp(C.dark, 0.72) : C.gap;
-      else if (!covered) tgt = C.dark;
+      else if (gaps) tgt = covered ? tmpC.copy(lit).lerp(C.dark, 0.72) : reach ? tmpC.copy(C.reach).lerp(C.dark, 0.5) : C.gap;
+      else if (!covered) tgt = reach && (!selF || reach.flow === selF) ? C.reach : reach ? tmpC.copy(C.reach).lerp(C.dark, 0.7) : C.dark;
       else if (selF) tgt = u.flows.includes(selF) ? lit : tmpC.copy(lit).lerp(C.dark, 0.8);
       else tgt = lit;
       n.color.lerp(tgt, k);
       n.mesh.setColorAt(n.slot, n.color);
       n.pop = Math.max(0, n.pop - dt * 2.2); n.labelT = Math.max(0, n.labelT - dt);
       let s = n.base * NS * (1 + 0.55 * n.pop) * (hovered === n ? 1.25 : 1) * n.vis;
-      if (gaps && !covered && !lu.active && !reduced) s *= 1 + 0.12 * Math.sin(time * 4);
+      if (gaps && !covered && !reach && !lu.active && !reduced) s *= 1 + 0.12 * Math.sin(time * 4);
       q.setFromEuler(eul.set(0, n.spin && !reduced ? time * 0.6 : 0, 0));
       n.mesh.setMatrixAt(n.slot, mtx.compose(n.show, q, sv.setScalar(s)));
     }
@@ -859,7 +871,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     if (seen) selectFlow(null, true);
     else { startLightUp(); if (!reduced) lu.pause = 1.4; }
   }
-  if (!lu.active) setCoverage(m.covered / total);
+  if (!lu.active) fullCoverage();
   frame();
 
   // For tests, scripted recordings and debugging from the console.

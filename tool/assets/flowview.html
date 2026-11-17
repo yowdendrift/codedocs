@@ -15,7 +15,7 @@
 <div id="labels"></div>
 <header>
   <div class="brand"><h1>Flow view</h1><p>Drag to orbit, pinch or scroll to zoom, tap anything.</p></div>
-  <div class="pill" aria-live="polite">Flow coverage <b id="covTxt">0%</b><div class="bar"><i id="covBar"></i></div></div>
+  <div class="pill" aria-live="polite" title="On a flow: a step names it. Reached: a step calls it (found by name, so approximate)">Flow coverage <b id="covTxt">0%</b><span id="reachTxt"></span><div class="bar"><i id="reachBar"></i><i id="covBar"></i></div></div>
 </header>
 <div id="card" role="dialog" aria-label="Unit details"></div>
 <div id="sheet">
@@ -30,7 +30,7 @@
     </div>
   </div>
   <div class="row legend">
-    <span><i class="lg-code"></i>code</span><span><i class="lg-eff"></i>side effect</span><span><i class="lg-dark"></i>undocumented</span><span><i class="lg-stub"></i>branch not taken</span>
+    <span><i class="lg-code"></i>code</span><span><i class="lg-eff"></i>side effect</span><span><i class="lg-reach"></i>called from a flow</span><span><i class="lg-dark"></i>undocumented</span><span><i class="lg-stub"></i>branch not taken</span>
   </div>
 </div>
 <div id="fallback" hidden></div>

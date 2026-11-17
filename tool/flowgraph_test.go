@@ -251,6 +251,16 @@ func TestSchemaAndValidatorAgree(t *testing.T) {
 		{"branch past the last step", true, func(g map[string]any) { branch(g, 0, 0)["atStep"] = 99.0 }},
 		{"branch to a missing flow", true, func(g map[string]any) { branch(g, 0, 0)["target"] = "refund" }},
 		{"duplicate unit", true, func(g map[string]any) { g["units"] = append(arr(g, "units"), arr(g, "units")[0]) }},
+		{"reached without via", false, func(g map[string]any) { unit(g, 0)["reached"] = map[string]any{"flow": flow(g, 0)["id"]} }},
+		{"reached by a missing flow", true, func(g map[string]any) {
+			offFlowUnit(g)["reached"] = map[string]any{"flow": "nothing", "via": unit(g, 0)["id"]}
+		}},
+		{"reached via a missing unit", true, func(g map[string]any) {
+			offFlowUnit(g)["reached"] = map[string]any{"flow": flow(g, 0)["id"], "via": "ui.nothing"}
+		}},
+		{"a step marked reached", true, func(g map[string]any) {
+			stepUnit(g)["reached"] = map[string]any{"flow": flow(g, 0)["id"], "via": offFlowUnit(g)["id"]}
+		}},
 	}
 	for _, c := range cases {
 		var g map[string]any
@@ -283,6 +293,7 @@ func TestValidatorAcceptsOptionalFields(t *testing.T) {
 	f["color"], f["lens"], f["docRef"], f["parent"] = nil, "system", "flows/create-account", "login"
 	branch(g, 0, 0)["target"] = "login"
 	arr(g, "districts")[0].(map[string]any)["path"] = "src/components/auth"
+	offFlowUnit(g)["reached"] = map[string]any{"flow": flow(g, 0)["id"], "via": step(g, 0, 0)["unit"]}
 	b, _ := json.Marshal(g)
 	if se := schemaErrors(t, schema, b); len(se) > 0 {
 		t.Errorf("schema rejects: %v", se)
@@ -380,4 +391,36 @@ func TestFlowviewPageIsVersioned(t *testing.T) {
 			t.Errorf("flowview.html has no %s; did the tag in tool/assets/flowview.html change?", re)
 		}
 	}
+}
+
+// offFlowUnit is a code unit of the fixture that no step names; stepUnit one that a step does.
+func offFlowUnit(g map[string]any) map[string]any {
+	on := onFlowIDs(g)
+	for _, u := range arr(g, "units") {
+		m := u.(map[string]any)
+		if m["kind"] == "code" && !on[m["id"].(string)] {
+			return m
+		}
+	}
+	panic("the fixture has no code unit off every flow")
+}
+
+func stepUnit(g map[string]any) map[string]any {
+	id := step(g, 0, 0)["unit"]
+	for _, u := range arr(g, "units") {
+		if m := u.(map[string]any); m["id"] == id {
+			return m
+		}
+	}
+	panic("step 0's unit is missing")
+}
+
+func onFlowIDs(g map[string]any) map[string]bool {
+	on := map[string]bool{}
+	for _, f := range arr(g, "flows") {
+		for _, s := range f.(map[string]any)["steps"].([]any) {
+			on[s.(map[string]any)["unit"].(string)] = true
+		}
+	}
+	return on
 }

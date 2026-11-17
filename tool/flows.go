@@ -1083,6 +1083,15 @@ func buildGraph(docsDir string, cfg *Config, opt graphOptions) (*Graph, *graphRe
 	for _, u := range all {
 		g.Units = append(g.Units, u.GUnit)
 	}
+	if rep.Granularity == "symbol" && len(g.Flows) > 0 {
+		names := map[string]string{}
+		for _, u := range all {
+			if u.cu != nil && u.cu.Symbol != "" {
+				names[u.ID] = lastSeg(u.cu.Symbol)
+			}
+		}
+		computeReach(g, names, sourceVisibility(getRepoCtx(docsDir)))
+	}
 	rep.Invalid = validateGraph(g)
 	return g, rep
 }

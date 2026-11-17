@@ -72,6 +72,23 @@ func coverage(g *Graph) (covered int) {
 	return len(on)
 }
 
+// reachedCount: units no step names but a flow runs (see computeReach).
+func reachedCount(g *Graph) (n int) {
+	for _, u := range g.Units {
+		if u.Reached != nil {
+			n++
+		}
+	}
+	return n
+}
+
+func percent(n, of int) int {
+	if of == 0 {
+		return 0
+	}
+	return n * 100 / of
+}
+
 func cmdFlows(o options) {
 	docsDir := findDocsDir(o, true)
 	cfg := loadConfig(docsDir)
@@ -85,7 +102,7 @@ func cmdFlows(o options) {
 	g, rep := buildGraph(docsDir, cfg, graphOptions{Granularity: o.granularity, Root: posix(relTo(docsDir, root))})
 	if o.json {
 		printJSON(map[string]any{"ok": rep.ok(), "problems": rep.Problems, "invalid": rep.Invalid, "layerErrors": rep.LayerErrs,
-			"layers": len(g.Layers), "units": len(g.Units), "flows": len(g.Flows), "covered": coverage(g), "granularity": rep.Granularity,
+			"layers": len(g.Layers), "units": len(g.Units), "flows": len(g.Flows), "covered": coverage(g), "reached": reachedCount(g), "granularity": rep.Granularity,
 			"unclassified": rep.Unclassified})
 	}
 	if !rep.ok() {
@@ -99,13 +116,13 @@ func cmdFlows(o options) {
 	if o.json {
 		return
 	}
-	cov := coverage(g)
-	pct := 0
-	if len(g.Units) > 0 {
-		pct = cov * 100 / len(g.Units)
+	cov, rch := coverage(g), reachedCount(g)
+	fmt.Printf("Wrote %s/flowgraph.json and the flow view: %d flows, %d units on %d layers, %d of %d units on a flow (%d%%)",
+		rel(docsDir), len(g.Flows), len(g.Units), len(g.Layers), cov, len(g.Units), percent(cov, len(g.Units)))
+	if rch > 0 {
+		fmt.Printf(", %d more called from one (%d%% reached in all)", rch, percent(cov+rch, len(g.Units)))
 	}
-	fmt.Printf("Wrote %s/flowgraph.json and the flow view: %d flows, %d units on %d layers, %d of %d units on a flow (%d%%).\n",
-		rel(docsDir), len(g.Flows), len(g.Units), len(g.Layers), cov, len(g.Units), pct)
+	fmt.Println(".")
 	if rep.Granularity == "file" {
 		fmt.Printf("Units are whole files: the repo has %d functions and methods, more than %d. Pass --granularity symbol to force them.\n", rep.Extracted, maxUnits)
 	}
@@ -163,7 +180,10 @@ type scanReport struct {
 	Entries      []string            `json:"entryPoints"`
 	Effects      map[string][]string `json:"sideEffects"` // unit id -> "effect: line text"
 	Flows        []scanFlow          `json:"flows"`
-	Uncovered    map[string]int      `json:"uncoveredByDistrict"`
+	Uncovered    map[string]int      `json:"uncoveredByDistrict"` // on no flow and reached by none
+	UnreachedIn  map[string][]string `json:"unreachedByDistrict"` // their names
+	Reached      int                 `json:"reached"`             // on no flow, but called from one
+	NoFlow       []string            `json:"entriesWithoutFlow"`  // entry points no flow starts at or runs
 	Problems     []Issue             `json:"problems"`
 	Stale        []string            `json:"staleFlows"`
 	Since        string              `json:"since,omitempty"`
@@ -178,7 +198,7 @@ type scanFlow struct {
 func cmdFlowsScan(o options, docsDir string, cfg *Config) {
 	g, rep := buildGraph(docsDir, cfg, graphOptions{Granularity: o.granularity})
 	s := scanReport{Layers: map[string]int{}, Units: len(g.Units), Granularity: rep.Granularity, Unclassified: rep.Unclassified,
-		LayersFile: rel(layersFile()), Effects: map[string][]string{}, Uncovered: map[string]int{}, Problems: rep.Problems}
+		LayersFile: rel(layersFile()), Effects: map[string][]string{}, Uncovered: map[string]int{}, UnreachedIn: map[string][]string{}, Problems: rep.Problems}
 	for _, u := range g.Units {
 		if u.Layer != "" {
 			s.Layers[u.Layer]++
@@ -216,11 +236,17 @@ func cmdFlowsScan(o options, docsDir string, cfg *Config) {
 			continue
 		}
 		files[u.File] = true
-		if !on[u.ID] {
+		if u.Reached != nil {
+			s.Reached++
+		} else if !on[u.ID] {
 			s.Uncovered[dname[u.District]]++
+			s.UnreachedIn[dname[u.District]] = append(s.UnreachedIn[dname[u.District]], u.Name)
 		}
 		if strings.Contains(u.Name, " /") {
 			s.Routes = append(s.Routes, fmt.Sprintf("%s  %s:%d", u.Name, u.File, u.Lines[0]))
+			if !on[u.ID] && u.Reached == nil {
+				s.NoFlow = append(s.NoFlow, fmt.Sprintf("route %s  %s:%d", u.Name, u.File, u.Lines[0]))
+			}
 		}
 		// Side effects inside the unit's own lines.
 		if len(u.Lines) == 2 && rep.Granularity == "symbol" {
@@ -241,6 +267,27 @@ func cmdFlowsScan(o options, docsDir string, cfg *Config) {
 			}
 		}
 	}
+	// An entry point is covered when a call on its line or the few after it (a CLI case's
+	// handler, an event listener's body) is a unit some flow names or reaches.
+	byName := map[string][]GUnit{}
+	for _, u := range g.Units {
+		if u.Kind == "code" {
+			n := u.Name[strings.LastIndexByte(u.Name, '.')+1:]
+			byName[n] = append(byName[n], u)
+		}
+	}
+	covered := func(f string, ls []string, i, span int) bool {
+		for k := i; k < len(ls) && k <= i+span; k++ {
+			for _, m := range reCallTok.FindAllStringSubmatch(ls[k], -1) {
+				for _, u := range byName[m[1]] {
+					if (on[u.ID] || u.Reached != nil) && extOf(u.File) == extOf(f) {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}
 	for _, f := range sortedKeys(files) {
 		ls := fileLines(f)
 		cli := reReadsArgs.MatchString(strings.Join(ls, "\n"))
@@ -249,12 +296,20 @@ func cmdFlowsScan(o options, docsDir string, cfg *Config) {
 				continue
 			}
 			if cli && reCaseCommand.MatchString(l) {
-				s.Entries = append(s.Entries, fmt.Sprintf("cli command  %s:%d  %s", f, i+1, clip(strings.TrimSpace(l), 90)))
+				e := fmt.Sprintf("cli command  %s:%d  %s", f, i+1, clip(strings.TrimSpace(l), 90))
+				s.Entries = append(s.Entries, e)
+				if !covered(f, ls, i, 1) {
+					s.NoFlow = append(s.NoFlow, e)
+				}
 				continue
 			}
 			for _, p := range entryPatterns {
 				if p.re.MatchString(l) {
-					s.Entries = append(s.Entries, fmt.Sprintf("%s  %s:%d  %s", p.kind, f, i+1, clip(strings.TrimSpace(l), 90)))
+					e := fmt.Sprintf("%s  %s:%d  %s", p.kind, f, i+1, clip(strings.TrimSpace(l), 90))
+					s.Entries = append(s.Entries, e)
+					if !covered(f, ls, i, 4) {
+						s.NoFlow = append(s.NoFlow, e)
+					}
 					break
 				}
 			}
@@ -360,9 +415,17 @@ func cmdFlowsScan(o options, docsDir string, cfg *Config) {
 	dk := sortedKeys(s.Uncovered)
 	sort.SliceStable(dk, func(i, j int) bool { return s.Uncovered[dk[i]] > s.Uncovered[dk[j]] })
 	for _, d := range dk {
-		unc = append(unc, fmt.Sprintf("%s: %d", d, s.Uncovered[d]))
+		names := s.UnreachedIn[d]
+		if len(names) > 10 {
+			names = append(names[:10:10], "…")
+		}
+		unc = append(unc, fmt.Sprintf("%s: %d (%s)", d, s.Uncovered[d], strings.Join(names, ", ")))
 	}
-	section("Units on no flow, by district", unc, 25)
+	section("Entry points no flow starts at or runs (each is a flow to write, or part of one)", s.NoFlow, 80)
+	if s.Reached > 0 {
+		fmt.Fprintf(&b, "\n%d unit(s) on no flow are called from one (reached), so the list below leaves them out.\n", s.Reached)
+	}
+	section("Units no flow names or reaches, by district (undocumented paths, or dead code)", unc, 25)
 	if len(s.Problems) > 0 {
 		fmt.Fprintf(&b, "\n## Problems in flowgraph blocks\n")
 		for _, i := range s.Problems {
