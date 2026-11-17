@@ -9,7 +9,7 @@ Each entry says what changed and whether it affects existing docs:
   leave it alone, so they never mark pages outdated.
 - **theme**: new variables in the default theme.css; `/codedocs upgrade` adds them to existing themes
 
-## Unreleased
+## 0.7.1 (2026-11-17)
 - **viewer, tool: reached code isn't a gap.** A flow names the hops that matter, not every
   helper, so the flow view counted helpers under documented steps as undocumented.
   `codedocs flows` now follows calls out of each flow's steps (by name, so approximate) and
