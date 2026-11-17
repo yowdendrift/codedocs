@@ -5,7 +5,7 @@ order: 75
 paths: [tool/flows.go, tool/flows_cmd.go, tool/flowgraph.go, tool/flowgraph_test.go, flowview/**, schema/**, .codedocs/**]
 layer: svc
 generated_with: 0.1.0
-updated: 2026-11-13
+updated: 2026-11-17
 ---
 # Flow view
 
@@ -97,23 +97,31 @@ float beside the service layer.
 `flowview/src/app.ts#start` builds the scene: instanced meshes for units (one draw call per
 shape), all flow tubes merged into one geometry in flow order so the light-up can reveal them
 with a draw range, additive pulses, and a pool of at most 40 HTML labels. It owns the modes
-(light-up, all, one flow, gaps), the camera presets, picking with enlarged invisible hit
+(light-up, one flow, gaps; there's deliberately no "all flows" mode, since every flow at once
+tangles as a project grows, so nothing runs until a flow is picked), the camera presets, picking with enlarged invisible hit
 spheres for touch, the unit card and the deep-link hash. `flowview/src/bloom.ts#MockupBloomPass`
 puts back the glow of the three.js version the mockup was made in. Without WebGL,
 `flowview/src/fallback.ts#renderFallback` draws a static SVG side view.
 
-### Focus
+### The 2D view
 
-The Focus view lays one flow out on its own, top to bottom. Every unit has a home on its slab
-(`pos`) and a place where it's drawn (`show`); `setFocus` gives the flow's units a place in the
-column (`focusLayout`: one row per unit in the order the flow first reaches it, one lane per
-layer it crosses) and the frame loop eases them there over 1.2 s, on the same curve as the
-camera. Everything else fades: other units shrink to nothing and stop being pickable, the slabs
-and district outlines go transparent. The flow's tube and branch stubs are rebuilt from where
-its units are drawn every frame they move, so the line of light travels with them; other flows
-sharing those units catch up once the move ends. The camera framing (`focusPreset`) works in
-pixels, because labels are HTML of a fixed size: room for labels both sides on a wide screen,
-and on a narrow one the lanes go to the left with every label to their right.
+The 2D view (the **2D view** button, `#focus-<id>`; the code calls it Focus) lays one flow out
+flat, as a straight line from top to bottom. Every unit has a home on its slab (`pos`) and a
+place where it's drawn (`show`); `setFocus` gives the flow's units a place in one column
+(`focusLayout`: a row per unit, in the order the flow first reaches it) and the frame loop eases
+them there over 1.2 s, on the same curve as the camera. Layers become dividers across the column
+with the layer's name, wherever the flow moves to another layer. A hop that isn't to the next row
+down (a return to an earlier unit, or a skip past rows) bows out to the right
+(`buildPath`'s `jump`) instead of running back over the line. Everything else fades: other units
+shrink to nothing and stop being pickable, and the slabs, district outlines and dust go dim. The
+camera faces the column square on and can't orbit, only pan and zoom.
+
+The flow's tube and branch stubs are rebuilt from where its units are drawn every frame they
+move, so the line of light travels with them; other flows sharing those units catch up once the
+move ends. The framing (`focusPreset`) works in pixels, because labels are HTML of a fixed size:
+on a wide screen the column sits in the middle with step labels to its left and names to its
+right; on a narrow one it goes to the left with everything to its right. A flow too long to fit
+keeps its rows at least about 34 px apart and starts at its top.
 
 ## Interfaces
 
@@ -133,5 +141,11 @@ and on a narrow one the lanes go to the left with every label to their right.
   The agreement test catches the first two drifting, not the third.
 - three.js changed its bloom since r128: the mockup's settings wash out to white in the current
   version. Keep `MockupBloomPass` (and its strength scale) if you upgrade three.
+- flowview.html is never written or served as it is in `tool/assets`: every path that hands it
+  out (serve, export, `flows`, install-viewer) goes through `tool/flows_cmd.go#flowviewPage`,
+  which addresses its script and stylesheet by a hash of their contents (`lib/flowview.js?v=…`).
+  The server caches `/lib/` for a day but never the page, so without the hash a browser pairs a
+  new page with yesterday's script after an upgrade (buttons the new script enables stay grey).
+  `tool/flowgraph_test.go#TestFlowviewPageIsVersioned` fails if the tags in the page change shape.
 - Labels are HTML over the canvas, so every visible label is a DOM element moved each frame.
   The cap of 40 is what keeps 2000-unit graphs smooth.

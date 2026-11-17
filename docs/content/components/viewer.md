@@ -4,7 +4,7 @@ summary: The single-page web app people read the docs in: navigation, markdown w
 order: 70
 paths: [tool/assets/**, tool/vendor.sh]
 generated_with: 0.1.0
-updated: 2026-11-12
+updated: 2026-11-17
 ---
 # Viewer
 
@@ -34,7 +34,9 @@ reads variables, so a theme can't break the layout and an upgrade never overwrit
 ### Pages and markdown
 
 `tool/assets/index.html#init` loads the manifest, detects whether a code panel is available,
-builds the sidebar (`tool/assets/index.html#buildNav`) and routes. `tool/assets/index.html#showPage`
+builds the sidebar (`tool/assets/index.html#buildNav`): one section per page kind, opened by its
+heading, one open at a time. Going to a page opens the section it's in
+(`tool/assets/index.html#markActive`). Then it routes. `tool/assets/index.html#showPage`
 renders a page with marked, using custom renderers set in `tool/assets/index.html#setupMarked`:
 inline code that matches a code ref becomes a link (`tool/assets/index.html#refHtml`), callouts
 like `[!INFERRED]` and `[!INSIGHT]` get their styles, and `(inferred)` in prose is tagged
