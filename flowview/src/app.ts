@@ -154,11 +154,12 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   if (gates) { gates.frustumCulled = false; scene.add(gates); }
 
   // Dust, from a fixed seed so every run looks the same.
+  const dustMat = new THREE.PointsMaterial({ color: 0x3d4f88, size: 0.12, transparent: true, opacity: 0.7, depthWrite: false });
   {
     const r = rng(7), p: number[] = [], S = L.scale;
     for (let i = 0; i < 700; i++) p.push((r() - 0.5) * 120 * S, (r() - 0.5) * 80 * S, (r() - 0.5) * 120 * S);
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
-    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x3d4f88, size: 0.12, transparent: true, opacity: 0.7, depthWrite: false })));
+    scene.add(new THREE.Points(g, dustMat));
   }
 
   // ---------- flows ----------
@@ -172,12 +173,18 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   }
   const many = m.flows.length > 12;
   // The curve through a flow's units: arcs over hops within a layer, S-bends between layers.
-  function buildPath(pts: THREE.Vector3[]) {
+  // In the 2D view (jump given) the column is a straight line, and a hop that isn't to the next
+  // row down (a return to an earlier unit, or a skip past rows) bows out to the right instead
+  // of running back over the line.
+  function buildPath(pts: THREE.Vector3[], jump?: (i: number) => number) {
     const path = new THREE.CurvePath<THREE.Vector3>(), seg: number[] = [];
     for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i], b = pts[i + 1], dy = b.y - a.y;
+      const a = pts[i], b = pts[i + 1], dy = b.y - a.y, rows = jump?.(i) ?? 1;
       let c: THREE.Curve<THREE.Vector3>;
-      if (Math.abs(dy) < 0.6) { const mid = a.clone().lerp(b, 0.5); mid.y = Math.max(a.y, b.y) + 1.1 + a.distanceTo(b) * 0.08; c = new THREE.QuadraticBezierCurve3(a, mid, b); }
+      if (rows !== 1 && rows !== 0) {
+        const out = 1.4 + 0.45 * Math.abs(rows);
+        c = new THREE.CubicBezierCurve3(a, new THREE.Vector3(a.x + out, a.y + dy * 0.1, a.z), new THREE.Vector3(b.x + out, b.y - dy * 0.1, b.z), b);
+      } else if (Math.abs(dy) < 0.6) { const mid = a.clone().lerp(b, 0.5); mid.y = Math.max(a.y, b.y) + 1.1 + a.distanceTo(b) * 0.08; c = new THREE.QuadraticBezierCurve3(a, mid, b); }
       else c = new THREE.CubicBezierCurve3(a, new THREE.Vector3(a.x, a.y + dy * 0.55, a.z), new THREE.Vector3(b.x, b.y - dy * 0.55, b.z), b);
       path.add(c); seg.push(c.getLength());
     }
@@ -188,6 +195,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     if (pts.length === 1) stepT.length = 1;
     return { path, total, stepT };
   }
+  const ZERO = new THREE.Vector3();
   const pathPoints = (f: Flow, off: THREE.Vector3) => f.steps.map(s => un[s.unit.index].show.clone().add(off));
   const FL: FR[] = m.flows.map((f, fi) => {
     const lanes = Math.min(m.flows.length, 8), k = fi % 8;
@@ -276,7 +284,9 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   }
   function rebuildPath(r: FR) {
     r.dirty = false;
-    const b = buildPath(pathPoints(r.f, r.off));
+    const F = FX && FX.r === r ? FX : null;
+    const row = (i: number) => F!.rowOf.get(r.f.steps[i].unit.index)!;
+    const b = buildPath(pathPoints(r.f, F ? ZERO : r.off), F ? i => row(i + 1) - row(i) : undefined);
     r.path = b.path; r.total = b.total; r.stepT = b.stepT;
     if (r.tube) { r.tube.geometry.dispose(); r.tube.geometry = new THREE.TubeGeometry(r.path, r.segs, 0.055, 6, false); }
     if (r.stubs) buildStubs(r);
@@ -295,12 +305,15 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   // ---------- state ----------
   let sel: FR | null = null, gaps = false, view: View = '3d', hovered: UN | null = null, tween: null | { fp: THREE.Vector3; tp: THREE.Vector3; ft: THREE.Vector3; tt: THREE.Vector3; t: number; d: number } = null;
   let userMoved = false;
-  // The Focus view: the selected flow alone, its units pulled off the slabs into a column, one
-  // row per unit in the order the flow first reaches it, one lane per layer. The slabs and every
-  // other unit fade away (fe: 0 = the stack, 1 = the column).
+  // The 2D view (Focus): the selected flow alone, its units pulled off the slabs into one
+  // straight column, a row per unit in the order the flow first reaches it. Runs of rows on the
+  // same layer are marked by a divider and the layer's name. The slabs and every other unit fade
+  // away (fe: 0 = the stack, 1 = the column) and the camera faces it square on.
   interface FocusLayout {
     r: FR; at: Map<number, THREE.Vector3>; rows: Map<number, number[]>; // unit index → its place, its step numbers
-    lanes: { name: string; x: number }[]; top: number; bottom: number; width: number; center: THREE.Vector3;
+    rowOf: Map<number, number>;                                          // unit index → its row
+    bands: { name: string; y: number }[];                                // a layer's run of rows starts below y
+    top: number; bottom: number; center: THREE.Vector3;
   }
   let focus = false, fe = 0, FX: FocusLayout | null = null;
   const lu ={ active: false, fi: 0, p: 0, pause: 0, lit: new Set<number>() };
@@ -350,53 +363,56 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   }
   // A phone, or a tall narrow window: the Focus view keeps its labels on one side.
   const narrowScreen = () => innerWidth < 640 || innerWidth / innerHeight < 0.8;
+  const ROW_GAP = 2.1;
   function focusLayout(r: FR): FocusLayout {
-    const narrow = narrowScreen();
-    const laneGap = narrow ? 1.7 : 3.8, rowGap = 2.1;
-    const order: number[] = [], rows = new Map<number, number[]>();
-    r.f.steps.forEach((s, i) => { const k = s.unit.index; if (!rows.has(k)) { rows.set(k, []); order.push(k); } rows.get(k)!.push(i); });
-    const laneOf = (k: number) => un[k].u.layer ?? '~ext';
-    const used = new Set(order.map(laneOf));
-    const ids = [...L.layers.map(l => l.id).filter(id => used.has(id)), ...(used.has('~ext') ? ['~ext'] : [])];
-    const n = ids.length, R = order.length, cx = TARGET.x, cy = TARGET.y;
-    // Narrow lanes get short names: UI, API, SVC, DATA, EXT.
-    const name = (id: string) => id === '~ext' ? (narrow ? 'Ext' : 'External') : narrow ? id.slice(0, 4) : L.layers.find(l => l.id === id)!.name;
-    const lanes = ids.map((id, k) => ({ name: name(id), x: cx + (k - (n - 1) / 2) * laneGap }));
+    const order: number[] = [], rows = new Map<number, number[]>(), rowOf = new Map<number, number>();
+    r.f.steps.forEach((s, i) => { const k = s.unit.index; if (!rows.has(k)) { rows.set(k, []); rowOf.set(k, order.length); order.push(k); } rows.get(k)!.push(i); });
+    const R = order.length, cx = TARGET.x, cy = TARGET.y;
+    const yOf = (row: number) => cy + ((R - 1) / 2 - row) * ROW_GAP;
     const at = new Map<number, THREE.Vector3>();
-    order.forEach((k, row) => at.set(k, new THREE.Vector3(lanes[ids.indexOf(laneOf(k))].x, cy + ((R - 1) / 2 - row) * rowGap, 0)));
-    const half = (R - 1) / 2 * rowGap;
-    return { r, at, rows, lanes, top: cy + half, bottom: cy - half, width: (n - 1) * laneGap, center: new THREE.Vector3(cx, cy, 0) };
+    order.forEach((k, row) => at.set(k, new THREE.Vector3(cx, yOf(row), 0)));
+    const bands: FocusLayout['bands'] = [];
+    order.forEach((k, row) => {
+      const name = un[k].u.layerName || 'Services';
+      if (!bands.length || bands[bands.length - 1].name !== name) bands.push({ name, y: yOf(row) + ROW_GAP / 2 });
+    });
+    const half = (R - 1) / 2 * ROW_GAP;
+    return { r, at, rows, rowOf, bands, top: cy + half, bottom: cy - half, center: new THREE.Vector3(cx, cy, 0) };
   }
-  // Straight on, a little above, in the clear band between the header and the controls at the
-  // bottom. Labels are HTML of a fixed pixel size, so the room kept for them is in pixels: both
-  // sides of the lanes on a wide screen, the right-hand side on a narrow one (lanes on the left).
+  // Square on, in the clear band between the header and the controls at the bottom. Labels are
+  // HTML of a fixed pixel size, so the framing is worked out in pixels: the column in the middle
+  // of a wide screen (steps to its left, names to its right), near the left edge of a narrow one
+  // (everything to its right).
   function focusPreset(F: FocusLayout) {
     const t = Math.tan((camera.fov * Math.PI / 180) / 2), narrow = narrowScreen();
     const top = ($('header')?.getBoundingClientRect().bottom ?? 0) - 6;
     const bottom = $('#sheet')?.getBoundingClientRect().top ?? innerHeight;
     const band = Math.max(0.35, (bottom - top) / innerHeight);
     const h = (F.top + 1.5 - F.bottom) / 2 + 1.2;
-    const room = Math.max(60, innerWidth - (narrow ? 230 : 2 * 190)); // px left for the lanes
-    let dist = h / (t * band);
-    if (F.width > 0) dist = Math.max(dist, F.width * (innerHeight / 2) / (t * room));
-    dist *= 1.04;
+    // Long flows would shrink to nothing: keep rows at least ~34 px apart and let the user pan.
+    const dist = Math.min(h / (t * band) * 1.04, (innerHeight / 2) * ROW_GAP / (t * 34));
     const ppu = (innerHeight / 2) / (t * dist); // screen px per world unit at the column
-    const lanesAt = narrow ? 30 + F.width * ppu / 2 : innerWidth / 2;
-    const target = F.center.clone().add(new THREE.Vector3(
-      (innerWidth / 2 - lanesAt) / ppu,
-      0.75 - ((innerHeight / 2 - (top + bottom) / 2) / (innerHeight / 2)) * t * dist, // the band's middle
-      0));
-    const dir = new THREE.Vector3(0, 0.08, 1).normalize();
+    const lanesAt = narrow ? 30 : innerWidth / 2;
+    // The world y to put in the middle of the clear band: the column's middle, or for a flow
+    // too long to fit, wherever puts its top at the top of the band.
+    const fits = h / (t * band) * 1.04 <= dist;
+    const bandMid = fits ? F.center.y + 0.75 : F.top + 1.5 - band * t * dist;
+    const target = new THREE.Vector3(
+      F.center.x + (innerWidth / 2 - lanesAt) / ppu,
+      bandMid - ((innerHeight / 2 - (top + bottom) / 2) / (innerHeight / 2)) * t * dist,
+      0);
+    const dir = new THREE.Vector3(0, 0, 1);
     return { pos: target.clone().addScaledVector(dir, dist), target };
   }
-  // Faint guides down each lane of the Focus view.
+  // Faint dividers where the column moves to another layer.
   const laneMat = new THREE.LineBasicMaterial({ color: 0x8aa6ff, transparent: true, opacity: 0, depthWrite: false });
   let laneLines: THREE.LineSegments | null = null;
   function buildLanes() {
     if (laneLines) { scene.remove(laneLines); laneLines.geometry.dispose(); laneLines = null; }
     if (!FX) return;
     const p: number[] = [];
-    for (const l of FX.lanes) p.push(l.x, FX.top + 1.1, -0.3, l.x, FX.bottom - 1.1, -0.3);
+    const x = FX.center.x, narrow = narrowScreen();
+    for (const b of FX.bands.slice(1)) p.push(x - (narrow ? 0.8 : 6), b.y, -0.3, x + (narrow ? 9 : 6), b.y, -0.3);
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
     laneLines = new THREE.LineSegments(g, laneMat); scene.add(laneLines);
   }
@@ -416,6 +432,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     buildLanes();
     if (sel) rebuildPath(sel);
     $('#btnFocus').classList.toggle('on', focus);
+    controls.enableRotate = !FX; // 2D: pan and zoom only
     if (FX) {
       document.querySelectorAll<HTMLButtonElement>('.seg button').forEach(b => b.classList.remove('on'));
       controls.autoRotate = false;
@@ -459,7 +476,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   }
   function updateLabels() {
     frameNo++;
-    if (FX && fe > 0.5) for (const l of FX.lanes) place(label('lane:' + l.name, l.name, 'layer'), lp.set(l.x, FX.top + 1.5, 0), 'translate(-50%,-50%)');
+    if (FX && fe > 0.5) for (const b of FX.bands) place(label('band:' + b.name + ':' + b.y.toFixed(2), b.name, 'layer'), lp.set(FX.center.x, b.y, 0), narrowScreen() ? 'translate(16px,-50%)' : 'translate(-100%,-50%) translateX(-16px)');
     else if (fe < 0.5) {
       for (const l of L.layers) place(label('layer:' + l.id, l.name, 'layer'), lp.set(-PW / 2, l.y, PD / 2), 'translate(6px,-140%)');
       if (ext.length && view !== 'top') place(label('layer:ext', 'external', 'layer'), lp.set(L.extX, L.extY + 1.9, -0.2), 'translate(-50%,-50%)');
@@ -523,16 +540,16 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     b.innerHTML = (color ? `<span class="sw" style="background:${esc(color)}"></span>` : '') + esc(text);
     b.onclick = fn; chips.appendChild(b); return b;
   }
-  const allChip = chip('All flows', null, () => selectFlow(null));
-  const flowChip = FL.map(r => chip(r.f.name, r.f.color, () => selectFlow(r)));
+  // There's no "all flows" mode: drawn at once they tangle, and more so as a project grows.
+  // Nothing runs until a flow is picked; picking it again lets it go.
+  const flowChip = FL.map(r => chip(r.f.name, r.f.color, () => selectFlow(sel === r ? null : r)));
   function refreshButtons() {
-    allChip.classList.toggle('on', !sel && !gaps && !lu.active);
     FL.forEach((r, i) => flowChip[i].classList.toggle('on', sel === r));
     $('#btnGaps').classList.toggle('on', gaps);
     $('#btnLight').classList.toggle('on', lu.active);
     const bf = $<HTMLButtonElement>('#btnFocus');
     bf.disabled = !sel; bf.classList.toggle('on', !!FX);
-    bf.title = sel ? (FX ? 'Back to the layers' : 'Lay this flow out on its own, top to bottom') : 'Pick a flow to focus on';
+    bf.title = sel ? (FX ? 'Back to the layers' : 'Lay this flow out flat, top to bottom') : 'Pick a flow first';
   }
   function setHash(h: string) {
     try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch { /* sandboxed */ }
@@ -553,7 +570,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       r.run.t = 0; r.run.idx = reduced ? 0 : -1; r.run.hold = 0;
       if (reduced) staticCaption(r);
       flowChip[r.f.index].scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    } else cap.innerHTML = `<span class="st">All documented flows${reduced ? '' : ' running at once'}. Tap a flow to follow it.</span>`;
+    } else cap.innerHTML = FL.length ? `<span class="st">Pick a flow below to follow it.</span>` : `<span class="st">No documented flows yet.</span>`;
     if (focus) setFocus(!!r); // another flow slides into the column, or the column goes back
     if (!fromHash) setHash(r ? (FX ? 'focus-' : 'flow-') + r.f.id : '');
     refreshButtons();
@@ -673,7 +690,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   }
   let tubeOpacity = 0;
   function updateFlows(dt: number) {
-    const target = lu.active ? 0.9 : gaps ? 0.1 : sel ? 0.05 * (1 - fe) : 0.4;
+    const target = lu.active ? 0.9 : gaps ? 0.1 : sel ? 0.05 * (1 - fe) : 0;
     tubeOpacity += (target - tubeOpacity) * Math.min(1, dt * 5);
     tubes.material.opacity = tubeOpacity;
     for (const r of FL) {
@@ -685,7 +702,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
       if (r.stubs) r.stubs.visible = sel === r && !lu.active;
       const fi = r.f.index;
       if (lu.active) { if (r !== FL[lu.fi]) headVisible[fi] = false; continue; }
-      const active = sel ? r === sel : !gaps;
+      const active = r === sel;
       if (!active || reduced) { headVisible[fi] = false; continue; }
       const run = r.run;
       if (run.hold > 0) { run.hold -= dt; headVisible[fi] = false; if (run.hold <= 0) { run.t = 0; run.idx = -1; } continue; }
@@ -730,7 +747,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
     const k = 1 - fe;
     slabMat.opacity = 0.055 * k; edgeMat.opacity = 0.55 * k; gridMat.opacity = 0.07 * k;
     districtMat.opacity = 0.28 * k; sheetRingMat.opacity = 0.22 * k;
-    laneMat.opacity = 0.16 * fe;
+    laneMat.opacity = 0.16 * fe; dustMat.opacity = 0.7 * (1 - 0.75 * fe);
   }
   function updateNodes(dt: number, time: number) {
     const k = Math.min(1, dt * 6);
@@ -815,11 +832,11 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   addEventListener('resize', () => {
     renderer.setSize(innerWidth, innerHeight); setFov(); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
     composer?.setSize(innerWidth, innerHeight);
-    if (FX) setFocus(true, true); // lanes are narrower in portrait
+    if (FX) setFocus(true, true); // the column moves left on a narrow screen
     else if (!userMoved) goView(view, true);
   });
 
-  // ---------- deep links: #flow-<id>, #focus-<id>, #gaps, #lightup ----------
+  // ---------- deep links: #flow-<id>, #focus-<id>, #gaps, #lightup (#all, from before, picks nothing) ----------
   function fromHash(): boolean {
     const h = decodeURIComponent(location.hash.replace(/^#/, ''));
     const fm = h.match(/^(flow|focus)-(.+)$/);
@@ -849,7 +866,7 @@ export function start(m: Model, L: Layout, opt: Options): { dispose(): void } {
   (window as any).__flowview = {
     selectFlow: (id: string | null) => selectFlow(id ? FL.find(r => r.f.id === id) ?? null : null),
     setGaps, startLightUp, goView, focus: (on = true) => toggleFocus(on), showCard: (id: string) => { const u = m.byId.get(id); if (u) showCard(un[u.index]); },
-    state: () => ({ mode: lu.active ? 'lightup' : gaps ? 'gaps' : FX ? 'focus' : sel ? 'flow' : 'all', flow: sel?.f.id ?? null, view, covered: m.covered, total, labels: [...pool.values()].filter(l => l.on).length }),
+    state: () => ({ mode: lu.active ? 'lightup' : gaps ? 'gaps' : FX ? 'focus' : sel ? 'flow' : 'none', flow: sel?.f.id ?? null, view, covered: m.covered, total, labels: [...pool.values()].filter(l => l.on).length }),
     layout: L, bloom: () => bloomPass, renderer,
   };
   return { dispose() { cancelAnimationFrame(raf); renderer.dispose(); } };

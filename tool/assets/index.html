@@ -708,15 +708,30 @@
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g).push(p);
     }
-    let html = '';
+    // Each section is a heading that opens it; only one is open at a time, and going to a page
+    // opens the section it's in (markActive).
+    const section = (key, title, links) => `<div class="nav-group" data-g="${esc(key)}"><h4><button type="button" aria-expanded="false" aria-controls="ng-${esc(key)}">${esc(title)}</button></h4><div class="nav-links" id="ng-${esc(key)}">${links}</div></div>`;
     const start = groups.get('Start here') || [];
-    html += `<div class="nav-group"><h4>Start here</h4>${start.map(navLink).join('')}<a href="#/map" data-id="map"><span class="dot" style="${kindVar('map')}"></span>Map</a>${M.flowgraph ? `<a href="#/flowview" data-id="flowview"><span class="dot" style="${kindVar('flow')}"></span>Flow view</a>` : ''}</div>`;
-    for (const [g, list] of groups) if (g !== 'Start here') html += `<div class="nav-group"><h4>${g}</h4>${list.map(navLink).join('')}</div>`;
+    let html = section('start', 'Start here', start.map(navLink).join('') + `<a href="#/map" data-id="map"><span class="dot" style="${kindVar('map')}"></span>Map</a>${M.flowgraph ? `<a href="#/flowview" data-id="flowview"><span class="dot" style="${kindVar('flow')}"></span>Flow view</a>` : ''}`);
+    for (const [g, list] of groups) if (g !== 'Start here') html += section(g.toLowerCase().replace(/[^a-z0-9]+/g, '-'), g, list.map(navLink).join(''));
     $('#nav').innerHTML = html;
+    $('#nav').querySelectorAll('.nav-group h4 button').forEach(b => b.onclick = () => {
+      const g = b.closest('.nav-group');
+      openSection(g.classList.contains('open') ? null : g);
+    });
+    openSection($('#nav .nav-group'));
+  }
+  function openSection(g) {
+    document.querySelectorAll('#nav .nav-group').forEach(x => {
+      x.classList.toggle('open', x === g);
+      x.querySelector('h4 button').setAttribute('aria-expanded', String(x === g));
+    });
   }
   const navLink = p => `<a href="#/${esc(p.id)}" data-id="${esc(p.id)}"><span class="dot" style="${kindVar(p.kind)}"></span>${esc(p.title)}</a>`;
   function markActive(id) {
-    document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.id === id));
+    let at = null;
+    document.querySelectorAll('#nav a').forEach(a => { const on = a.dataset.id === id; a.classList.toggle('active', on); if (on) at = a.closest('.nav-group'); });
+    if (at) openSection(at);
   }
   const pageLink = id => { const p = byId.get(id); return p ? `<li><a href="#/${esc(id)}"><span class="dot" style="${kindVar(p.kind)}"></span>${esc(p.title)}</a></li>` : ''; };
 

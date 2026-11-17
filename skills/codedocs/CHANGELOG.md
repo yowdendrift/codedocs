@@ -13,11 +13,13 @@ Each entry says what changed and whether it affects existing docs:
 - **viewer: the flow view.** A 3D picture of the code as stacked glass layers (UI, API,
   services, data, or the repo's own), each documented flow drawn as a line of light through the
   functions it passes, with side effects in coral and branches not taken as dashed stubs. Modes:
-  a light-up tour on first visit, all flows, one flow (step by step, with a caption), and gaps
-  (code on no documented flow, in red, with the coverage figure). Click a unit for a card that
-  opens its code in the code panel. **Focus** lifts the selected flow out of the layers into a
-  column of its own, one row per unit in step order and one lane per layer, with each step's
-  label beside it; the units fly between the two views and the layers fade. Camera presets
+  a light-up tour on first visit, one flow (step by step, with a caption), and gaps (code on no
+  documented flow, in red, with the coverage figure). There is no "all flows" mode: nothing runs
+  until a flow is picked, and picking it again lets it go. Click a unit for a card that opens
+  its code in the code panel. **2D view** lifts the selected flow out of the layers into a flat,
+  straight column, one row per unit in step order, with each step's label beside it and a
+  divider where it changes layer; the units fly between the two views, the layers fade, and the
+  camera faces it square on (pan and zoom only). Camera presets
   3D / Side / Top; deep links `#flow-<id>`, `#focus-<id>` and `#gaps`; touch, reduced motion,
   and an SVG side view where WebGL isn't available. It opens from
   a **Flow view** entry in the sidebar, from a flow page, or as `flowview.html` in the docs
@@ -34,6 +36,8 @@ Each entry says what changed and whether it affects existing docs:
   Components may set `layer`. Both optional; existing docs are unaffected.
 - **guidance**: new `/codedocs flows` guide; `update` re-traces stale blocks. Additive, so the
   page-guidance version is unchanged and no pages show as outdated.
+- **viewer**: the sidebar's sections open one at a time from their headings; going to a page
+  opens its section.
 - **viewer**: the mind map now uses the theme's colours. In dark mode its headings ("Components",
   "Flows"…) and the "via …" lines were dark grey on a dark background; markmap's own defaults
   were overriding the theme.
